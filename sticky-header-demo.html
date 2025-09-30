@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吸顶头部效果演示</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .demo-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .demo-header.scrolled {
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .file-info {
+            flex: 1;
+        }
+        .file-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 0 0 4px 0;
+        }
+        .file-details {
+            display: flex;
+            gap: 12px;
+        }
+        .file-tag {
+            font-size: 12px;
+            color: #666;
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .nav-btn {
+            padding: 6px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: white;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        .demo-content {
+            padding: 40px 20px;
+            height: 800px;
+            overflow-y: auto;
+        }
+        .content-section {
+            margin: 40px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        .scroll-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="scroll-indicator" id="scroll-indicator">滚动位置: 0px</div>
+    
+    <div class="demo-container">
+        <div class="demo-header" id="demo-header">
+            <div class="file-info">
+                <div class="file-name">示例图片文件.png</div>
+                <div class="file-details">
+                    <span class="file-tag">PNG</span>
+                    <span class="file-tag">2.5 MB</span>
+                    <span class="file-tag">1 / 5</span>
+                </div>
+            </div>
+            <div class="nav-buttons">
+                <button class="nav-btn">上一个</button>
+                <button class="nav-btn">下一个</button>
+            </div>
+        </div>
+        
+        <div class="demo-content" id="demo-content">
+            <div class="content-section">
+                <h3>🎯 吸顶头部功能</h3>
+                <p>这个演示展示了插件中的吸顶头部效果。当您滚动页面时，顶部的文件信息栏和导航按钮会始终保持在顶部可见。</p>
+                <ul>
+                    <li>✅ 文件名、类型、大小信息始终可见</li>
+                    <li>✅ 上一个/下一个按钮随时可用</li>
+                    <li>✅ 半透明背景和模糊效果</li>
+                    <li>✅ 平滑的过渡动画</li>
+                    <li>✅ 响应式设计</li>
+                </ul>
+            </div>
+            
+            <div class="content-section">
+                <h3>🖼️ 图片预览区域</h3>
+                <p>这里是图片预览的主要区域。当图片很大时，用户可以滚动查看，而文件信息和导航按钮始终保持在顶部。</p>
+                <div style="height: 400px; background: linear-gradient(45deg, #f0f0f0, #e0e0e0); display: flex; align-items: center; justify-content: center; border-radius: 8px; margin: 20px 0;">
+                    <span style="color: #666; font-size: 18px;">图片预览区域</span>
+                </div>
+            </div>
+            
+            <div class="content-section">
+                <h3>📱 响应式支持</h3>
+                <p>吸顶头部在不同屏幕尺寸下都能正常工作：</p>
+                <ul>
+                    <li>桌面端：完整显示所有信息</li>
+                    <li>平板端：自适应调整间距</li>
+                    <li>手机端：紧凑布局，保持可用性</li>
+                </ul>
+            </div>
+            
+            <div class="content-section">
+                <h3>🌙 暗色主题适配</h3>
+                <p>吸顶头部支持暗色主题，会根据系统主题自动调整：</p>
+                <ul>
+                    <li>浅色主题：白色半透明背景</li>
+                    <li>暗色主题：深色半透明背景</li>
+                    <li>平滑的主题切换动画</li>
+                </ul>
+            </div>
+            
+            <div class="content-section">
+                <h3>⚡ 性能优化</h3>
+                <p>吸顶效果经过优化，确保流畅的用户体验：</p>
+                <ul>
+                    <li>使用 CSS sticky 定位，性能更好</li>
+                    <li>backdrop-filter 硬件加速</li>
+                    <li>节流的滚动事件处理</li>
+                    <li>平滑的过渡动画</li>
+                </ul>
+            </div>
+            
+            <div class="content-section">
+                <h3>🎨 视觉效果</h3>
+                <p>吸顶头部具有现代化的视觉效果：</p>
+                <ul>
+                    <li>半透明背景增加层次感</li>
+                    <li>模糊背景突出内容</li>
+                    <li>阴影效果增强立体感</li>
+                    <li>滚动时的动态反馈</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const header = document.getElementById('demo-header');
+        const content = document.getElementById('demo-content');
+        const indicator = document.getElementById('scroll-indicator');
+        
+        // 滚动事件处理
+        content.addEventListener('scroll', () => {
+            const scrollTop = content.scrollTop;
+            
+            // 更新滚动指示器
+            indicator.textContent = `滚动位置: ${scrollTop}px`;
+            
+            // 添加/移除滚动状态类
+            if (scrollTop > 10) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+        
+        // 页面加载完成后的提示
+        window.addEventListener('load', () => {
+            console.log('✅ 吸顶头部演示页面已加载');
+            console.log('💡 请滚动页面查看吸顶效果');
+        });
+    </script>
+</body>
+</html>

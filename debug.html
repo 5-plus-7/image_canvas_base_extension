@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>插件调试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .debug-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .log-info { background: #e7f3ff; }
+        .log-error { background: #ffe7e7; }
+        .log-success { background: #e7ffe7; }
+        .log-warn { background: #fff7e7; }
+    </style>
+</head>
+<body>
+    <h1>🔧 插件调试工具</h1>
+    
+    <div class="debug-section">
+        <h2>📊 当前状态</h2>
+        <div class="status info">
+            <strong>插件地址:</strong> <code>https://bitable-attachment-preview.loca.lt/</code>
+        </div>
+        <div class="status info">
+            <strong>本地地址:</strong> <code>http://localhost:5174/</code>
+        </div>
+        <div class="status success" id="server-status">
+            ✅ 开发服务器运行中
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>🧪 测试功能</h2>
+        <button class="test-button" onclick="testImageLoading()">测试图片加载</button>
+        <button class="test-button" onclick="testSDKConnection()">测试SDK连接</button>
+        <button class="test-button" onclick="clearConsole()">清空控制台</button>
+        <button class="test-button" onclick="exportLogs()">导出日志</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>📝 控制台日志</h2>
+        <div id="console-output" class="console-output">等待日志输出...</div>
+    </div>
+
+    <div class="debug-section">
+        <h2>🔍 常见问题诊断</h2>
+        <div class="status warning">
+            <strong>问题 1: 图片加载失败</strong><br>
+            可能原因：<br>
+            • 附件URL获取失败<br>
+            • 网络连接问题<br>
+            • 图片格式不支持<br>
+            • 权限问题
+        </div>
+        <div class="status warning">
+            <strong>问题 2: 插件无法加载</strong><br>
+            可能原因：<br>
+            • HTTPS证书问题<br>
+            • 网络连接问题<br>
+            • 多维表格权限设置
+        </div>
+        <div class="status warning">
+            <strong>问题 3: 选择无响应</strong><br>
+            可能原因：<br>
+            • 未选中附件字段<br>
+            • 字段中没有附件数据<br>
+            • SDK初始化失败
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>📋 调试步骤</h2>
+        <ol>
+            <li>打开浏览器开发者工具（F12）</li>
+            <li>切换到 Console 面板</li>
+            <li>在多维表格中选中附件字段</li>
+            <li>查看控制台输出的日志信息</li>
+            <li>检查网络请求是否成功</li>
+            <li>验证图片URL是否有效</li>
+        </ol>
+    </div>
+
+    <script>
+        let logs = [];
+        
+        // 捕获控制台日志
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        
+        function addLog(type, message, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                type,
+                message: typeof message === 'string' ? message : JSON.stringify(message),
+                args: args.map(arg => typeof arg === 'string' ? arg : JSON.stringify(arg))
+            };
+            logs.push(logEntry);
+            updateConsoleOutput();
+        }
+        
+        console.log = (...args) => {
+            originalLog(...args);
+            addLog('info', ...args);
+        };
+        
+        console.error = (...args) => {
+            originalError(...args);
+            addLog('error', ...args);
+        };
+        
+        console.warn = (...args) => {
+            originalWarn(...args);
+            addLog('warn', ...args);
+        };
+        
+        console.info = (...args) => {
+            originalInfo(...args);
+            addLog('info', ...args);
+        };
+        
+        function updateConsoleOutput() {
+            const output = document.getElementById('console-output');
+            output.innerHTML = logs.map(log => {
+                const className = `log-${log.type}`;
+                return `<div class="log-entry ${className}">[${log.timestamp}] ${log.type.toUpperCase()}: ${log.message} ${log.args.join(' ')}</div>`;
+            }).join('');
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearConsole() {
+            logs = [];
+            updateConsoleOutput();
+            console.log('控制台已清空');
+        }
+        
+        function exportLogs() {
+            const logText = logs.map(log => 
+                `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.message} ${log.args.join(' ')}`
+            ).join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `plugin-debug-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function testImageLoading() {
+            console.log('🧪 开始测试图片加载...');
+            
+            // 测试一个公开的图片URL
+            const testImage = new Image();
+            testImage.onload = () => {
+                console.log('✅ 测试图片加载成功');
+            };
+            testImage.onerror = () => {
+                console.error('❌ 测试图片加载失败');
+            };
+            testImage.src = 'https://picsum.photos/200/200';
+        }
+        
+        function testSDKConnection() {
+            console.log('🧪 测试SDK连接...');
+            
+            // 检查SDK是否可用
+            if (typeof bitable !== 'undefined') {
+                console.log('✅ SDK已加载');
+                bitable.base.getSelection().then(selection => {
+                    console.log('✅ SDK连接正常，当前选择:', selection);
+                }).catch(error => {
+                    console.error('❌ SDK连接失败:', error);
+                });
+            } else {
+                console.error('❌ SDK未加载，请确保在多维表格环境中运行');
+            }
+        }
+        
+        // 页面加载完成后的初始化
+        window.addEventListener('load', () => {
+            console.log('🚀 调试页面已加载');
+            console.log('📍 当前页面URL:', window.location.href);
+            console.log('🌐 User Agent:', navigator.userAgent);
+            
+            // 检查是否在iframe中
+            if (window.self !== window.top) {
+                console.log('📱 当前在iframe中运行');
+            } else {
+                console.log('🖥️ 当前在独立窗口中运行');
+            }
+        });
+        
+        // 监听错误
+        window.addEventListener('error', (event) => {
+            console.error('💥 页面错误:', event.error);
+        });
+        
+        // 监听未处理的Promise拒绝
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('💥 未处理的Promise拒绝:', event.reason);
+        });
+    </script>
+</body>
+</html>

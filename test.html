@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>插件测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        .url-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+        }
+        .url-box code {
+            background: none;
+            font-size: 16px;
+            color: #007bff;
+        }
+        .step {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .step-number {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 多维表格附件预览插件 - 测试页面</h1>
+    
+    <div class="test-section">
+        <h2>📋 插件信息</h2>
+        <div class="status success">
+            ✅ 插件已成功构建并部署
+        </div>
+        <div class="status info">
+            📅 构建时间：<span id="build-time"></span>
+        </div>
+        <div class="status info">
+            🔧 开发服务器状态：运行中
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 访问地址</h2>
+        <div class="url-box">
+            <strong>本地地址：</strong><br>
+            <code>http://localhost:5174/</code>
+        </div>
+        <div class="url-box">
+            <strong>网络地址：</strong><br>
+            <code>http://172.30.110.46:5174/</code><br>
+            <code>http://10.251.1.1:5174/</code>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📖 使用方法</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>创建测试数据</strong><br>
+            在多维表格中创建一个附件字段，并上传一些图片文件（JPG、PNG、GIF等格式）
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>添加插件</strong><br>
+            在多维表格中点击"插件" → "自定义插件" → "+新增插件"，输入以下地址：
+            <div class="url-box">
+                <code>http://localhost:5174/</code>
+            </div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>测试功能</strong><br>
+            选中包含图片附件的单元格，在侧边栏中查看图片预览效果
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 调试工具</h2>
+        <div class="status warning">
+            ⚠️ 注意：由于多维表格要求 HTTPS 协议，如果无法直接使用 HTTP 地址，需要配置内网穿透工具
+        </div>
+        
+        <h3>推荐的内网穿透工具：</h3>
+        <ul>
+            <li><strong>ngrok</strong>：<code>ngrok http 5174</code></li>
+            <li><strong>localtunnel</strong>：<code>npx localtunnel --port 5174</code></li>
+            <li><strong>serveo</strong>：<code>ssh -R 80:localhost:5174 serveo.net</code></li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 常见问题</h2>
+        <div class="status info">
+            <strong>Q: 插件无法加载？</strong><br>
+            A: 检查网络连接，确保开发服务器正在运行
+        </div>
+        <div class="status info">
+            <strong>Q: 图片无法显示？</strong><br>
+            A: 确认附件字段中包含图片类型的文件，支持 JPG、PNG、GIF、WebP、BMP、SVG
+        </div>
+        <div class="status info">
+            <strong>Q: 需要 HTTPS？</strong><br>
+            A: 是的，多维表格插件需要 HTTPS 协议，建议使用内网穿透工具
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 功能特性</h2>
+        <ul>
+            <li>✅ 自动监听附件字段选择</li>
+            <li>✅ 支持多种图片格式预览</li>
+            <li>✅ 响应式设计，适配不同尺寸</li>
+            <li>✅ 大图预览模式</li>
+            <li>✅ 优雅的错误处理</li>
+            <li>✅ 遵循 Base 设计规范</li>
+        </ul>
+    </div>
+
+    <script>
+        // 显示构建时间
+        document.getElementById('build-time').textContent = new Date().toLocaleString();
+        
+        // 检查服务器状态
+        fetch('/')
+            .then(response => {
+                if (response.ok) {
+                    console.log('✅ 开发服务器运行正常');
+                }
+            })
+            .catch(error => {
+                console.error('❌ 开发服务器连接失败:', error);
+            });
+    </script>
+</body>
+</html>

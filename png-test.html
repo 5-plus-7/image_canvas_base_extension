@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNG支持测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .supported-formats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .format-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+        }
+        .format-item.supported {
+            border-color: #4caf50;
+            background: #f1f8e9;
+        }
+        .format-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .format-ext {
+            font-size: 12px;
+            color: #666;
+        }
+        .test-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .test-image {
+            text-align: center;
+            padding: 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        .test-image img {
+            max-width: 100%;
+            height: 100px;
+            object-fit: contain;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .test-image .image-name {
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🖼️ PNG图片支持测试</h1>
+    
+    <div class="test-section">
+        <h2>📋 支持的图片格式</h2>
+        <div class="status success">
+            ✅ PNG格式已完全支持，包括透明背景PNG
+        </div>
+        
+        <div class="supported-formats">
+            <div class="format-item supported">
+                <div class="format-name">JPEG</div>
+                <div class="format-ext">.jpg, .jpeg</div>
+            </div>
+            <div class="format-item supported">
+                <div class="format-name">PNG</div>
+                <div class="format-ext">.png</div>
+            </div>
+            <div class="format-item supported">
+                <div class="format-name">GIF</div>
+                <div class="format-ext">.gif</div>
+            </div>
+            <div class="format-item supported">
+                <div class="format-name">WebP</div>
+                <div class="format-ext">.webp</div>
+            </div>
+            <div class="format-item supported">
+                <div class="format-name">BMP</div>
+                <div class="format-ext">.bmp</div>
+            </div>
+            <div class="format-item supported">
+                <div class="format-name">SVG</div>
+                <div class="format-ext">.svg</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 PNG测试图片</h2>
+        <div class="status info">
+            💡 这些测试图片用于验证PNG格式的显示效果
+        </div>
+        
+        <div class="test-images">
+            <div class="test-image">
+                <img src="https://via.placeholder.com/150x150/ff0000/ffffff?text=PNG+Red" alt="PNG Red">
+                <div class="image-name">红色PNG</div>
+            </div>
+            <div class="test-image">
+                <img src="https://via.placeholder.com/150x150/00ff00/000000?text=PNG+Green" alt="PNG Green">
+                <div class="image-name">绿色PNG</div>
+            </div>
+            <div class="test-image">
+                <img src="https://via.placeholder.com/150x150/0000ff/ffffff?text=PNG+Blue" alt="PNG Blue">
+                <div class="image-name">蓝色PNG</div>
+            </div>
+            <div class="test-image">
+                <img src="https://via.placeholder.com/150x150/transparent/ffffff?text=Transparent" alt="Transparent PNG">
+                <div class="image-name">透明背景PNG</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📖 使用方法</h2>
+        <ol>
+            <li><strong>上传PNG图片</strong>：在多维表格的附件字段中上传PNG格式的图片</li>
+            <li><strong>选择附件字段</strong>：选中包含PNG图片的单元格</li>
+            <li><strong>查看预览</strong>：在侧边栏中查看PNG图片的全屏预览</li>
+            <li><strong>切换查看</strong>：使用"上一个"/"下一个"按钮或键盘左右箭头切换图片</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 故障排除</h2>
+        <div class="status info">
+            <strong>如果PNG图片无法显示：</strong><br>
+            1. 检查图片文件扩展名是否为 .png<br>
+            2. 确认图片文件没有损坏<br>
+            3. 尝试重新选择附件字段<br>
+            4. 检查浏览器控制台是否有错误信息<br>
+            5. 确认网络连接正常
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>✨ PNG特殊功能</h2>
+        <ul>
+            <li>✅ 支持透明背景PNG</li>
+            <li>✅ 支持高分辨率PNG</li>
+            <li>✅ 支持PNG动画（APNG）</li>
+            <li>✅ 保持PNG图片质量</li>
+            <li>✅ 响应式缩放显示</li>
+        </ul>
+    </div>
+
+    <script>
+        // 测试PNG支持
+        function testPNGSupport() {
+            const testImg = new Image();
+            testImg.onload = () => {
+                console.log('✅ PNG格式支持正常');
+                document.body.insertAdjacentHTML('beforeend', 
+                    '<div class="status success">✅ 浏览器PNG支持检测：正常</div>'
+                );
+            };
+            testImg.onerror = () => {
+                console.error('❌ PNG格式支持异常');
+                document.body.insertAdjacentHTML('beforeend', 
+                    '<div class="status error">❌ 浏览器PNG支持检测：异常</div>'
+                );
+            };
+            testImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        }
+
+        // 页面加载完成后测试
+        window.addEventListener('load', testPNGSupport);
+    </script>
+</body>
+</html>

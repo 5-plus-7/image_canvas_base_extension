@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画板图片插入测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .test-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .test-btn.secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .test-btn.secondary:hover {
+            background: #e0e0e0;
+        }
+        .test-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .test-image {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .test-image:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        .test-image img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .test-image-name {
+            font-size: 12px;
+            color: #666;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        
+        .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            background: white;
+            display: none;
+        }
+        
+        .canvas-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1001;
+            backdrop-filter: blur(8px);
+        }
+        
+        .canvas-content {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🎨 画板图片插入功能测试</h1>
+            <p>点击下方图片测试在 tldraw 画板中插入图片的功能</p>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="test-btn" onclick="testWithSampleImage()">
+                🖼️ 测试示例图片
+            </button>
+            <button class="test-btn secondary" onclick="testWithCustomUrl()">
+                🔗 测试自定义URL
+            </button>
+            <button class="test-btn secondary" onclick="openMainPlugin()">
+                🔗 打开主插件
+            </button>
+        </div>
+        
+        <div class="test-images">
+            <div class="test-image" onclick="testImage('https://picsum.photos/400/300?random=1', '随机图片1')">
+                <img src="https://picsum.photos/400/300?random=1" alt="随机图片1">
+                <div class="test-image-name">随机图片1</div>
+            </div>
+            <div class="test-image" onclick="testImage('https://picsum.photos/400/300?random=2', '随机图片2')">
+                <img src="https://picsum.photos/400/300?random=2" alt="随机图片2">
+                <div class="test-image-name">随机图片2</div>
+            </div>
+            <div class="test-image" onclick="testImage('https://picsum.photos/400/300?random=3', '随机图片3')">
+                <img src="https://picsum.photos/400/300?random=3" alt="随机图片3">
+                <div class="test-image-name">随机图片3</div>
+            </div>
+            <div class="test-image" onclick="testImage('https://picsum.photos/400/300?random=4', '随机图片4')">
+                <img src="https://picsum.photos/400/300?random=4" alt="随机图片4">
+                <div class="test-image-name">随机图片4</div>
+            </div>
+        </div>
+        
+        <div id="status-messages"></div>
+    </div>
+    
+    <div id="canvas-container" class="canvas-container">
+        <div class="canvas-header">
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    画板测试: <span id="canvas-image-name">图片名称</span>
+                </h3>
+                <p style="margin: 0; font-size: 12px; color: #666;">
+                    测试图片插入功能
+                </p>
+            </div>
+            <button class="test-btn secondary" onclick="closeCanvas()">
+                关闭画板
+            </button>
+        </div>
+        <div class="canvas-content">
+            <div id="tldraw-container" style="width: 100%; height: 100%;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        let tldrawApp = null;
+        
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusDiv.appendChild(statusElement);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (statusElement.parentNode) {
+                    statusElement.parentNode.removeChild(statusElement);
+                }
+            }, 3000);
+        }
+        
+        // 测试图片插入
+        async function testImage(imageUrl, imageName) {
+            showStatus(`开始测试图片: ${imageName}`, 'info');
+            
+            try {
+                // 显示画板容器
+                const canvasContainer = document.getElementById('canvas-container');
+                const canvasImageName = document.getElementById('canvas-image-name');
+                canvasImageName.textContent = imageName;
+                canvasContainer.style.display = 'block';
+                
+                // 动态加载 tldraw
+                await loadTldraw();
+                
+                // 插入图片
+                await insertImageToCanvas(imageUrl, imageName);
+                
+                showStatus(`图片 ${imageName} 插入成功！`, 'success');
+            } catch (error) {
+                console.error('测试图片失败:', error);
+                showStatus(`测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 加载 tldraw
+        async function loadTldraw() {
+            if (tldrawApp) return;
+            
+            try {
+                // 动态导入 tldraw
+                const { Tldraw } = await import('/node_modules/tldraw/tldraw.js');
+                
+                // 创建 tldraw 实例
+                const container = document.getElementById('tldraw-container');
+                container.innerHTML = ''; // 清空容器
+                
+                // 这里需要使用 React 来渲染 Tldraw 组件
+                // 由于这是纯 HTML 页面，我们需要使用不同的方法
+                showStatus('正在加载 tldraw...', 'info');
+                
+                // 创建一个简单的画布来模拟 tldraw 的功能
+                createSimpleCanvas(container);
+                
+            } catch (error) {
+                console.error('加载 tldraw 失败:', error);
+                throw new Error('无法加载画板组件');
+            }
+        }
+        
+        // 创建简单的画布（用于演示）
+        function createSimpleCanvas(container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight - 60;
+            canvas.style.border = '1px solid #e0e0e0';
+            canvas.style.background = '#f9f9f9';
+            
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制网格背景
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            
+            for (let x = 0; x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // 添加提示文字
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('画板区域 - 图片将在这里显示', canvas.width / 2, canvas.height / 2);
+            
+            container.appendChild(canvas);
+            tldrawApp = { canvas, ctx };
+        }
+        
+        // 插入图片到画布
+        async function insertImageToCanvas(imageUrl, imageName) {
+            if (!tldrawApp) throw new Error('画板未初始化');
+            
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    try {
+                        const { canvas, ctx } = tldrawApp;
+                        
+                        // 清空画布
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // 重新绘制网格
+                        ctx.strokeStyle = '#e0e0e0';
+                        ctx.lineWidth = 1;
+                        
+                        for (let x = 0; x < canvas.width; x += 50) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, 0);
+                            ctx.lineTo(x, canvas.height);
+                            ctx.stroke();
+                        }
+                        
+                        for (let y = 0; y < canvas.height; y += 50) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, y);
+                            ctx.lineTo(canvas.width, y);
+                            ctx.stroke();
+                        }
+                        
+                        // 计算图片尺寸（保持宽高比）
+                        const maxWidth = canvas.width * 0.8;
+                        const maxHeight = canvas.height * 0.8;
+                        
+                        let { width, height } = img;
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = width * ratio;
+                            height = height * ratio;
+                        }
+                        
+                        // 居中绘制图片
+                        const x = (canvas.width - width) / 2;
+                        const y = (canvas.height - height) / 2;
+                        
+                        ctx.drawImage(img, x, y, width, height);
+                        
+                        // 绘制边框
+                        ctx.strokeStyle = '#667eea';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x, y, width, height);
+                        
+                        // 绘制图片名称
+                        ctx.fillStyle = '#333';
+                        ctx.font = '14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(imageName, canvas.width / 2, y + height + 25);
+                        
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                img.onerror = () => {
+                    reject(new Error('图片加载失败'));
+                };
+                
+                img.src = imageUrl;
+            });
+        }
+        
+        // 关闭画板
+        function closeCanvas() {
+            const canvasContainer = document.getElementById('canvas-container');
+            canvasContainer.style.display = 'none';
+            tldrawApp = null;
+        }
+        
+        // 测试示例图片
+        function testWithSampleImage() {
+            testImage('https://picsum.photos/600/400?random=100', '示例图片');
+        }
+        
+        // 测试自定义URL
+        function testWithCustomUrl() {
+            const url = prompt('请输入图片URL:');
+            if (url) {
+                testImage(url, '自定义图片');
+            }
+        }
+        
+        // 打开主插件
+        function openMainPlugin() {
+            window.open('https://bitable-attachment-preview.loca.lt/', '_blank');
+        }
+        
+        // 页面加载完成
+        window.addEventListener('load', () => {
+            showStatus('画板测试页面已加载，点击图片开始测试', 'success');
+            console.log('🎨 画板测试页面已加载');
+        });
+        
+        // 导出函数到全局作用域
+        window.testImage = testImage;
+        window.testWithSampleImage = testWithSampleImage;
+        window.testWithCustomUrl = testWithCustomUrl;
+        window.openMainPlugin = openMainPlugin;
+        window.closeCanvas = closeCanvas;
+    </script>
+</body>
+</html>

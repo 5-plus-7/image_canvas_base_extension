@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画板图片插入简单测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, Tahoma, PingFang SC, Microsoft Yahei, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .test-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px;
+            transition: all 0.2s ease;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        
+        .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            background: white;
+            display: none;
+        }
+        
+        .canvas-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1001;
+            backdrop-filter: blur(8px);
+        }
+        
+        .canvas-content {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9f9f9;
+        }
+        
+        .simple-canvas {
+            width: 90%;
+            height: 90%;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .canvas-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .canvas-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 画板图片插入功能测试</h1>
+        <p>这个测试页面模拟了图片插入画板的功能，帮助验证图片插入逻辑是否正确。</p>
+        
+        <div>
+            <button class="test-btn" onclick="testImageInsert('https://picsum.photos/600/400?random=1', '测试图片1')">
+                🖼️ 测试图片1
+            </button>
+            <button class="test-btn" onclick="testImageInsert('https://picsum.photos/600/400?random=2', '测试图片2')">
+                🖼️ 测试图片2
+            </button>
+            <button class="test-btn" onclick="testImageInsert('https://picsum.photos/600/400?random=3', '测试图片3')">
+                🖼️ 测试图片3
+            </button>
+        </div>
+        
+        <div id="status-messages"></div>
+        
+        <div style="margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px;">
+            <h3>测试说明：</h3>
+            <ul>
+                <li>点击上方按钮测试不同的图片</li>
+                <li>图片会自动插入到画板中并居中显示</li>
+                <li>可以模拟真实的 tldraw 画板行为</li>
+                <li>检查控制台日志了解插入过程</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div id="canvas-container" class="canvas-container">
+        <div class="canvas-header">
+            <div>
+                <h3 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    画板测试: <span id="canvas-image-name">图片名称</span>
+                </h3>
+                <p style="margin: 0; font-size: 12px; color: #666;">
+                    图片已自动插入到画板中
+                </p>
+            </div>
+            <button class="test-btn" onclick="closeCanvas()" style="background: #f0f0f0; color: #666;">
+                关闭画板
+            </button>
+        </div>
+        <div class="canvas-content">
+            <div class="simple-canvas">
+                <div class="canvas-info" id="canvas-info">
+                    图片信息
+                </div>
+                <img id="canvas-image" class="canvas-image" alt="画板图片">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusDiv.appendChild(statusElement);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (statusElement.parentNode) {
+                    statusElement.parentNode.removeChild(statusElement);
+                }
+            }, 3000);
+        }
+        
+        // 测试图片插入
+        async function testImageInsert(imageUrl, imageName) {
+            showStatus(`开始测试图片插入: ${imageName}`, 'info');
+            
+            try {
+                // 显示画板容器
+                const canvasContainer = document.getElementById('canvas-container');
+                const canvasImageName = document.getElementById('canvas-image-name');
+                const canvasImage = document.getElementById('canvas-image');
+                const canvasInfo = document.getElementById('canvas-info');
+                
+                canvasImageName.textContent = imageName;
+                canvasContainer.style.display = 'block';
+                
+                // 模拟图片插入过程
+                console.log('开始插入图片:', imageUrl);
+                
+                // 创建图片元素获取尺寸
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    try {
+                        // 计算合适尺寸
+                        const maxWidth = 800;
+                        const maxHeight = 600;
+                        let { width, height } = img;
+                        
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = width * ratio;
+                            height = height * ratio;
+                        }
+                        
+                        // 显示图片
+                        canvasImage.src = imageUrl;
+                        canvasImage.style.width = width + 'px';
+                        canvasImage.style.height = height + 'px';
+                        
+                        // 更新信息
+                        canvasInfo.innerHTML = `
+                            <div>名称: ${imageName}</div>
+                            <div>尺寸: ${width} × ${height}</div>
+                            <div>状态: 已插入</div>
+                        `;
+                        
+                        showStatus(`图片 ${imageName} 插入成功！尺寸: ${width} × ${height}`, 'success');
+                        console.log('图片插入成功');
+                        
+                    } catch (error) {
+                        console.error('创建图片形状失败:', error);
+                        showStatus(`插入失败: ${error.message}`, 'error');
+                    }
+                };
+                
+                img.onerror = () => {
+                    console.error('图片加载失败:', imageUrl);
+                    showStatus('图片加载失败', 'error');
+                };
+                
+                img.src = imageUrl;
+                
+            } catch (error) {
+                console.error('测试图片失败:', error);
+                showStatus(`测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 关闭画板
+        function closeCanvas() {
+            const canvasContainer = document.getElementById('canvas-container');
+            canvasContainer.style.display = 'none';
+        }
+        
+        // 页面加载完成
+        window.addEventListener('load', () => {
+            showStatus('画板测试页面已加载，点击按钮开始测试', 'success');
+            console.log('🎨 画板测试页面已加载');
+        });
+        
+        // 导出函数到全局作用域
+        window.testImageInsert = testImageInsert;
+        window.closeCanvas = closeCanvas;
+    </script>
+</body>
+</html>
