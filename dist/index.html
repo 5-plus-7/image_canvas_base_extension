@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>附件预览插件</title>
+  <script type="module" crossorigin src="./assets/index.f47f4fa1.js"></script>
+  <link rel="stylesheet" href="./assets/index.5e12c08d.css">
+</head>
+
+<body>
+  <main class="main">
+
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-illustration">
+        <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="25" y="45" width="100" height="80" rx="8" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="2"/>
+          <circle cx="50" cy="70" r="8" fill="#d9d9d9"/>
+          <path d="M25 105L75 75L125 105V125H25V105Z" fill="#d9d9d9"/>
+        </svg>
+      </div>
+      <h5 class="empty-title">请选中附件字段单元格</h5>
+      <p class="empty-desc">在多维表格中选中包含图片等附件的单元格即可预览</p>
+    </div>
+
+    <!-- 全屏预览区域 -->
+    <div id="preview-container" class="preview-container" style="display: none;">
+      <!-- 文件信息头部 -->
+      <div class="preview-header">
+        <div class="file-info">
+          <div class="file-name-container">
+            <span class="field-name" id="field-name"></span>
+            <span class="file-name" id="file-name"></span>
+          </div>
+          <div class="file-details">
+            <div class="file-navigation">
+              <button id="prev-btn" class="nav-btn-square" disabled title="上一个">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+              </button>
+              <span class="file-index" id="file-index"></span>
+              <button id="next-btn" class="nav-btn-square" disabled title="下一个">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+              </button>
+            </div>
+            <span class="file-size" id="file-size"></span>
+          </div>
+        </div>
+        <div class="preview-actions">
+          <button id="canvas-btn" class="nav-btn canvas-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v10H7V7z"/>
+            </svg>
+            编辑
+          </button>
+        </div>
+      </div>
+      
+      <!-- 预览内容区域 -->
+      <div class="preview-content">
+        <div id="image-preview" class="image-preview">
+          <!-- 图片将在这里显示 -->
+        </div>
+        <div id="unsupported-preview" class="unsupported-preview" style="display: none;">
+          <div class="unsupported-icon">
+            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="20" y="25" width="40" height="30" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="2"/>
+              <path d="M40 35L35 40L40 45L45 40L40 35Z" fill="#d9d9d9"/>
+              <text x="40" y="65" text-anchor="middle" fill="#999" font-size="12">不支持的文件类型</text>
+            </svg>
+          </div>
+          <div class="unsupported-message">
+            <h3>无法预览此文件</h3>
+            <p>当前仅支持预览图片格式的文件</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 不支持的文件类型提示 -->
+    <div id="unsupported-container" class="unsupported-container" style="display: none;">
+      <div class="unsupported-icon">
+        <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="15" width="40" height="30" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="2"/>
+          <path d="M30 25L25 30L30 35L35 30L30 25Z" fill="#d9d9d9"/>
+          <text x="30" y="55" text-anchor="middle" fill="#999" font-size="12">不支持的文件类型</text>
+        </svg>
+      </div>
+      <h5 class="unsupported-title">暂不支持此文件类型</h5>
+      <p class="unsupported-desc">目前仅支持预览图片格式的附件文件</p>
+    </div>
+  </main>
+  
+</body>
+
+</html>
