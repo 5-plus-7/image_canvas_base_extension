@@ -55,6 +55,183 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
     }
   }, [tableId, currentFieldId]);
 
+  // 预置Library元素
+  useEffect(() => {
+    if (excalidrawAPI) {
+      // 创建常用标注元素
+      const libraryItems = [
+        // 1. 红色圆圈（圈出重点）
+        [
+          {
+            type: 'ellipse',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            strokeColor: '#ff0000',
+            backgroundColor: 'transparent',
+            strokeWidth: 3,
+            fillStyle: 'solid',
+          }
+        ],
+        // 2. 红色箭头（指向问题）
+        [
+          {
+            type: 'arrow',
+            x: 0,
+            y: 0,
+            width: 150,
+            height: 100,
+            strokeColor: '#ff0000',
+            strokeWidth: 3,
+            points: [[0, 0], [150, 100]],
+          }
+        ],
+        // 3. 黄色高亮框
+        [
+          {
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 200,
+            height: 60,
+            strokeColor: '#fab005',
+            backgroundColor: '#fff3bf',
+            strokeWidth: 2,
+            fillStyle: 'solid',
+            opacity: 70,
+          }
+        ],
+        // 4. "重点" 红色标签
+        [
+          {
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 40,
+            strokeColor: '#ff0000',
+            backgroundColor: '#ffe8e8',
+            strokeWidth: 2,
+            fillStyle: 'solid',
+          },
+          {
+            type: 'text',
+            x: 15,
+            y: 10,
+            width: 50,
+            height: 20,
+            text: '重点',
+            fontSize: 20,
+            strokeColor: '#ff0000',
+            fontFamily: 1,
+          }
+        ],
+        // 5. "问题" 黄色标签
+        [
+          {
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 40,
+            strokeColor: '#fab005',
+            backgroundColor: '#fff3bf',
+            strokeWidth: 2,
+            fillStyle: 'solid',
+          },
+          {
+            type: 'text',
+            x: 15,
+            y: 10,
+            width: 50,
+            height: 20,
+            text: '问题',
+            fontSize: 20,
+            strokeColor: '#fab005',
+            fontFamily: 1,
+          }
+        ],
+        // 6. "通过" 绿色标签
+        [
+          {
+            type: 'rectangle',
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 40,
+            strokeColor: '#40c057',
+            backgroundColor: '#d3f9d8',
+            strokeWidth: 2,
+            fillStyle: 'solid',
+          },
+          {
+            type: 'text',
+            x: 15,
+            y: 10,
+            width: 50,
+            height: 20,
+            text: '通过',
+            fontSize: 20,
+            strokeColor: '#40c057',
+            fontFamily: 1,
+          }
+        ],
+        // 7. 绿色勾号（表示正确）
+        [
+          {
+            type: 'freedraw',
+            x: 0,
+            y: 0,
+            strokeColor: '#40c057',
+            strokeWidth: 4,
+            points: [
+              [0, 30],
+              [10, 40],
+              [15, 45],
+              [20, 50],
+              [40, 20],
+              [50, 10],
+              [60, 0],
+            ],
+          }
+        ],
+        // 8. 红色叉号（表示错误）
+        [
+          {
+            type: 'line',
+            x: 0,
+            y: 0,
+            strokeColor: '#ff0000',
+            strokeWidth: 4,
+            points: [[0, 0], [50, 50]],
+          },
+          {
+            type: 'line',
+            x: 0,
+            y: 50,
+            strokeColor: '#ff0000',
+            strokeWidth: 4,
+            points: [[0, 0], [50, -50]],
+          }
+        ],
+      ];
+
+      // 转换为Excalidraw格式
+      const formattedLibraryItems = libraryItems.map((elements, index) => ({
+        status: 'published',
+        id: `preset_${index}`,
+        created: Date.now(),
+        elements: elements as any,
+      }));
+
+      // 更新library
+      excalidrawAPI.updateLibrary({
+        libraryItems: formattedLibraryItems as any,
+      });
+    }
+  }, [excalidrawAPI]);
+
   // 加载图片到画布并设置默认工具
   useEffect(() => {
     if (excalidrawAPI && imageUrl) {
