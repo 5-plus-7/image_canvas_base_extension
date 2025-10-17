@@ -41,9 +41,19 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
         // 过滤掉当前字段
         const filteredFields = fieldMetaList.filter(field => field.id !== currentFieldId);
         
-        setAttachmentFields(filteredFields);
-        if (filteredFields.length > 0) {
-          setSelectedFieldId(filteredFields[0].id);
+        // 排序：包含"结果"的字段优先显示
+        const sortedFields = filteredFields.sort((a, b) => {
+          const aHasResult = a.name.includes('结果');
+          const bHasResult = b.name.includes('结果');
+          
+          if (aHasResult && !bHasResult) return -1;  // a包含"结果"，排在前面
+          if (!aHasResult && bHasResult) return 1;   // b包含"结果"，排在前面
+          return 0;  // 都包含或都不包含，保持原顺序
+        });
+        
+        setAttachmentFields(sortedFields);
+        if (sortedFields.length > 0) {
+          setSelectedFieldId(sortedFields[0].id);
         }
       } catch (error) {
         console.error('获取附件字段失败:', error);
@@ -122,9 +132,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
             width: 50,
             height: 20,
             text: '重点',
-            fontSize: 20,
+            fontSize: 24,
             strokeColor: '#ff0000',
-            fontFamily: 1,
+            fontFamily: 4,
           }
         ],
         // 5. "问题" 黄色标签
@@ -147,9 +157,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
             width: 50,
             height: 20,
             text: '问题',
-            fontSize: 20,
+            fontSize: 24,
             strokeColor: '#fab005',
-            fontFamily: 1,
+            fontFamily: 4,
           }
         ],
         // 6. "通过" 绿色标签
@@ -172,19 +182,19 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
             width: 50,
             height: 20,
             text: '通过',
-            fontSize: 20,
+            fontSize: 24,
             strokeColor: '#40c057',
-            fontFamily: 1,
+            fontFamily: 4,
           }
         ],
         // 7. 绿色勾号（表示正确）
         [
           {
-            type: 'freedraw',
+            type: 'draw',
             x: 0,
             y: 0,
             strokeColor: '#40c057',
-            strokeWidth: 4,
+            strokeWidth: 6,
             points: [
               [0, 30],
               [10, 40],
@@ -199,19 +209,20 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
         // 8. 红色叉号（表示错误）
         [
           {
-            type: 'line',
+            type: 'draw',
             x: 0,
             y: 0,
             strokeColor: '#ff0000',
-            strokeWidth: 4,
+            strokeWidth: 6,
+            edges: 'round',
             points: [[0, 0], [50, 50]],
           },
           {
-            type: 'line',
+            type: 'draw',
             x: 0,
             y: 50,
             strokeColor: '#ff0000',
-            strokeWidth: 4,
+            strokeWidth: 6,
             points: [[0, 0], [50, -50]],
           }
         ],
