@@ -260,7 +260,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
             编辑
           </button>
         )}
-        {selectedFieldType !== FieldType.Attachment && onBlankCanvasClick && (
+        {selectedFieldType !== null && selectedFieldType !== FieldType.Attachment && onBlankCanvasClick && (
           <button className="btn btn-sm btn-outline-primary me-2" onClick={onBlankCanvasClick}>
             空白画布
           </button>
@@ -270,7 +270,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
             空白画布
           </button>
         )}
-        {hasGradeField && (showGradeButton || showGradeBtn) && (
+        {selectedFieldType !== null && hasGradeField && (showGradeButton || showGradeBtn) && (
           <button className="btn btn-sm btn-primary" onClick={onGradeClick}>
             处理算法结果
           </button>
