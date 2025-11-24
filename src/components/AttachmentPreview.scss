@@ -1,0 +1,266 @@
+.attachment-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px;
+
+    .empty-illustration {
+      margin-bottom: 24px;
+      opacity: 0.6;
+    }
+
+    .empty-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+
+    .empty-message {
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+    }
+  }
+
+  .error-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    font-size: 14px;
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e5e5;
+    flex-shrink: 0;
+
+    .title-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+
+      .field-info {
+        display: flex;
+        align-items: center;
+        font-size: 14px;
+        color: #666;
+
+        .field-label {
+          .field-value {
+            color: #1a1a1a;
+            font-weight: 500;
+            margin-left: 4px;
+          }
+        }
+      }
+
+      .title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #1a1a1a;
+      }
+
+      .attachment-nav-inline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .nav-btn {
+          background: #fff;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 18px;
+          color: #333;
+          transition: all 0.2s;
+          padding: 0;
+
+          &:hover:not(:disabled) {
+            background: #f0f0f0;
+            border-color: #40a9ff;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+
+        .nav-indicator {
+          font-size: 13px;
+          color: #666;
+          min-width: 50px;
+          text-align: center;
+        }
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  .pdf-controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+
+    .pdf-page-info {
+      font-size: 14px;
+      color: #666;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .pdf-zoom-info {
+      font-size: 14px;
+      color: #666;
+      min-width: 50px;
+      text-align: center;
+    }
+  }
+
+  .preview-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+
+
+    .preview-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      position: relative;
+      background: #f5f5f5;
+
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        z-index: 100; // 确保加载动效显示在最上层
+
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #f0f0f0;
+          border-top-color: #1890ff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .loading-text {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .loading-filename {
+          color: #999;
+          font-size: 12px;
+          margin-top: 4px;
+          word-break: break-all;
+          text-align: center;
+          max-width: 300px;
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .preview-image {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        transition: transform 0.1s;
+        user-select: none;
+        // 优化图片渲染性能
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+        image-rendering: optimize-quality;
+        will-change: transform;
+        // 使用 GPU 加速
+        backface-visibility: hidden;
+      }
+
+      .pdf-viewer {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: auto;
+        padding: 20px;
+
+        .preview-pdf-canvas {
+          max-width: 100%;
+          height: auto;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          background: #fff;
+        }
+      }
+
+      .unsupported-format {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 12px;
+
+        .unsupported-filename {
+          color: #1a1a1a;
+          font-size: 16px;
+          font-weight: 500;
+          word-break: break-all;
+          text-align: center;
+          padding: 0 20px;
+        }
+
+        .unsupported-message {
+        color: #999;
+        font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
