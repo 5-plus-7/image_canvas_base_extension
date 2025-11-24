@@ -65,6 +65,6 @@ export const PDF_MIME_TYPE = 'application/pdf';
 // 批改预览相关配置
 export const GRADE_PREVIEW_CONFIG = {
   TOOLTIP_MESSAGE: '需要校验算法批改为错误的所有内容，详细规则详见此链接：',
-  TOOLTIP_LINK_URL: 'https://gaotuedu.feishu.cn/base/UlN7bF5c5aLbYWsoKGGcwJwcnge?table=tblOJdsjjgzL9fFx&view=vewDOjoR2X', // 配置为完整的公网链接地址，例如：https://example.com/rules
+  TOOLTIP_LINK_URL: 'https://gaotuedu.feishu.cn/wiki/AWDZwRKQRi6GZZkabO7cIcR8nLc', // 配置为完整的公网链接地址，例如：https://example.com/rules
 } as const;
 
