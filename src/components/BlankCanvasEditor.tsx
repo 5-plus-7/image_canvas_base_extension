@@ -7,7 +7,7 @@ import { initializeExcalidrawLibrary } from '../utils/excalidrawLibrary';
 import { getRecordTitle } from '../utils/recordTitle';
 import { showToast } from '../utils/toast';
 import { ConfirmDialog } from './ConfirmDialog';
-import { EXPORT_FILE_PREFIX, TIMEOUT } from '../constants';
+import { EXPORT_FILE_PREFIX, TIMEOUT, COLORS } from '../constants';
 import type { ExcalidrawImperativeAPI, ExcalidrawElement, BinaryFiles } from '../types/excalidraw';
 import './ExcalidrawEditor.scss';
 
@@ -154,6 +154,11 @@ export const BlankCanvasEditor: React.FC<BlankCanvasEditorProps> = ({
 
       <div className="editor-content">
         <Excalidraw
+          initialData={{
+            appState: {
+              currentItemStrokeColor: COLORS.ERROR, // 默认画笔/椭圆描边颜色：红色
+            },
+          }}
           excalidrawAPI={(api: ExcalidrawImperativeAPI) => {
             if (api) {
               setExcalidrawAPI(api);

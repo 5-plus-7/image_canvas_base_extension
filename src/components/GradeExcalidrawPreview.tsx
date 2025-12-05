@@ -22,7 +22,16 @@ interface AnswerStep {
 
 interface QuestionInfo {
   question_number: string;
-  question_type: 'objective' | 'subjective';
+  question_type:
+    | '选择题'
+    | '判断题'
+    | '填空题'
+    | '解答题'
+    | '应用题'
+    | '作文题'
+    | '连线题'
+    | '作图题'
+    | '其他';
   question_text: string;
   answer_steps: AnswerStep[];
 }
@@ -290,10 +299,12 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
   const addMarkingElements = (questions: QuestionInfo[], scaleX: number, scaleY: number, displayWidth: number) => {
     const elements: any[] = [];
     let subjectiveY = 20; // 用于定位右侧批注信息的y轴位置
+    const addedQuestionTitles = new Set<string>(); // 记录已添加题号文本的题目，避免重复
 
     questions.forEach((question, qIndex) => {
-      // 针对客观题，添加所有题目的正确错误标记，以及错误题目的文字批注
-      if (question.question_type === 'objective') {
+      let hasAnalysisText = false; // 标记本题是否添加过批改分析文本
+      // 针对所有题目的正确错误标记，以及错误题目的文字批注
+      if (question.question_type ) {
         question.answer_steps.forEach((step) => {
           const [x1, y1, x2, y2] = step.answer_location;
           const scaledX1 = x1 * scaleX;
@@ -307,96 +318,89 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
           if (step.is_correct) {
             const centerX = scaledX1 + width / 2;
             const centerY = scaledY1 + height ;
-            const checkSize = Math.min(width, height) * 0.5;
-            // 生成唯一 groupId，用于对钩的line的合并操作
-            // const groupId = `group_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`; 
-            /*
-            elements.push(...[
-              {
-                type: 'line',
-                x: centerX - checkSize * 0.6,
-                y: centerY - checkSize * 0.6,
-                points: [[0, 0], [checkSize * 0.6, checkSize * 0.6],[checkSize * 1.8, checkSize * -0.6]],
-                strokeColor: COLORS.CORRECT,
-                strokeWidth: 4,
-                groupIds: [groupId],
-              },
-              {
-                type: 'line',
-                x: centerX,
-                y: centerY - checkSize * 0.0,
-                points: [[0, 0], [checkSize * 1.0, -checkSize * 1.0]],
-                strokeColor: COLORS.CORRECT,
-                strokeWidth: 4,
-                groupIds: [groupId],
-              }
-            ]);
-
+            const checkSize = 0.75 * Math.min(0.12 * displayWidth, Math.max(0.2 * (width+height),0.6 * Math.min(width,height),0.04 * displayWidth));
+            /* 动态对钩尺寸：width<30 放大到 2x，width>400 缩到 0.5x
+            const baseSize = (width + height) / 2;
+            const t = Math.min(Math.max((width - 25) / (400 - 25), 0), 1); // 0~1 线性
+            const scaleFactor = 0.7 - t * (0.7 - 0.2); // 2 -> 0.5
+            const checkSize = baseSize * scaleFactor;
             */
-
             
-            // 绿色对勾
+            // 红色对勾
             elements.push({
               type: 'line',
-              x: centerX - checkSize * 0.8,
-              y: centerY - checkSize * 0.6,
-              points: [[0, 0], [checkSize * 0.6, checkSize * 0.6],[checkSize * 1.8, checkSize * -0.6]],
-              strokeColor: 'green',
+              x: centerX - checkSize ,
+              y: centerY - checkSize ,
+              points: [
+                [0, 0],
+                [checkSize * 0.20,  checkSize * 0.30],
+                [checkSize * 0.45,  checkSize * 0.60],
+                [checkSize * 0.65,  checkSize * 0.80],
+                [checkSize * 0.90,  checkSize * 0.95],
+                [checkSize * 1.10,  checkSize * 0.85],  // 轻微回落
+                [checkSize * 1.30,  checkSize * 0.70],
+                [checkSize * 1.60,  checkSize * 0.45],
+                [checkSize * 1.95,  checkSize * 0.05],
+                [checkSize * 2.40, -checkSize * 0.70],
+                [checkSize * 3.20, -checkSize * 2.40] 
+              ],
+              strokeColor: 'red',//'#52c41a', //'green',
               strokeWidth: 4,
+              roughness: 1.4, // 略微抖动，模拟手写
             });
-            /*
-            // 对勾的第二段（中间到右上）
-            elements.push({
-              type: 'line',
-              x: centerX,
-              y: centerY - checkSize * 0.0,
-              // width: checkSize * 0.4,
-              // height: -checkSize * 0.2,
-              points: [[0, 0], [checkSize * 1.0, -checkSize * 1.0]],
-              strokeColor: 'green',
-              strokeWidth: 4,
-              // roughness: 0,
-              // fillStyle: 'solid'
-            });
-            */
-
-            
+        
           } else {
             // 针对错误题目添加红色圆圈
+
+            const baseScale = 2.0;              // 原先最大放大倍数
+            const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
+            const scaleFactor =
+              1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
+            // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
+            
             elements.push({
               type: 'ellipse',
-              x: scaledX1,
-              y: scaledY1,
-              width: width,
-              height: height,
+              x: scaledX1 - width  * scaleFactor * 0.2,
+              y: scaledY1 - height  * scaleFactor * 0.2,
+              width: width * scaleFactor,
+              height: height * scaleFactor,
               strokeColor: 'red',
               backgroundColor: 'transparent',
               strokeWidth: 3,
-              // fillStyle: 'solid',
-              // roughness: 0
+              roughness: 1.4,
             });
 
-            // 添加错误客观题的题号文本
-            elements.push({
-                type: 'text',
-                x: displayWidth + 20,  // 放置在图片右侧
-                y: subjectiveY,
-                width: 300,
-                height: 30,
-                text: `题号: ${question.question_number} (客观题)`,
-                fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
-                fontFamily: 0,
-                textAlign: 'left',
-                verticalAlign: 'top',
-                strokeColor: '#333',
-                
-                fillStyle: 'solid'
-              });
-              subjectiveY += 20;
+            
+
+            // 添加错误的题号文本
+            if (!addedQuestionTitles.has(question.question_number)) {
+              elements.push({
+                  type: 'text',
+                  x: displayWidth + 20,  // 放置在图片右侧
+                  y: subjectiveY,
+                  width: 300,
+                  height: 30,
+                  text: `题号: ${question.question_number} `,
+                  fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                  fontFamily: 0,
+                  textAlign: 'left',
+                  verticalAlign: 'top',
+                  strokeColor: '#333',
+                  
+                  fillStyle: 'solid'
+                });
+                subjectiveY += 12;
+                addedQuestionTitles.add(question.question_number);
+            }
 
 
             // 添加错误客观题的批改分析文本（按固定宽度自动换行）
-            const analysisText = step.analysis;
+            // const analysisText = '(' + step.step_id + ') '  + step.analysis;
+            const hasMultipleSteps = question.answer_steps.length > 1;
+            const analysisText = hasMultipleSteps
+            ? `(${step.step_id}) ${step.analysis}`
+            : step.analysis;
+
             const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
             const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
             const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
@@ -423,124 +427,20 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
               fillStyle: 'solid'
             });
 
-            subjectiveY += textHeight + 40;
+            subjectiveY += textHeight + 12;
+            hasAnalysisText = true;
           }
 
           
         });
-      } else if (question.question_type === 'subjective') {
-        // 添加主观题的题号文本
-        elements.push({
-          type: 'text',
-          x: displayWidth + 20,  // 放置在图片右侧
-          y: subjectiveY,
-          width: 300,
-          height: 30,
-                text: `题号: ${question.question_number} (主观题)`,
-                fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
-          fontFamily: 0,
-          textAlign: 'left',
-          verticalAlign: 'top',
-          strokeColor: '#333',
-          fillStyle: 'solid'
-        });
-        subjectiveY += 20;
-
-        // 针对每个步骤添加批改结果文本和标记
-        question.answer_steps.forEach((step) => {
-
-            const [x1, y1, x2, y2] = step.answer_location;
-            const scaledX1 = x1 * scaleX;
-            const scaledY1 = y1 * scaleY;
-            const scaledX2 = x2 * scaleX;
-            const scaledY2 = y2 * scaleY;
-            const width = scaledX2 - scaledX1;
-            const height = scaledY2 - scaledY1;
-
-            if (step.is_correct) {
-              // 增加步骤序号
-              elements.push({
-                type: 'text',
-                x: scaledX1,
-                y: scaledY1 + height - 30,
-                text: `(${step.step_id})`,
-                strokeColor: COLORS.WARNING,
-                fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
-                fontFamily: 0,
-              });
-            //  针对正确步骤添加绿色下划线
-            elements.push({
-                type: 'line',
-                x: scaledX1 ,
-                y: scaledY1 + height,
-                points: [[0, 0], [width, 0]],
-                strokeColor: COLORS.WARNING,
-                strokeWidth: 4,
-                
-                // fillStyle: 'solid',
-                // roughness: 0
-              });
-
-            } else  {
-                // 增加步骤序号
-                elements.push({
-                  type: 'text',
-                  x: scaledX1,
-                  y: scaledY1 + height - 30,
-                  text: `(${step.step_id}) `,
-                  strokeColor: COLORS.ERROR,
-                  fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
-                  fontFamily: 0,
-                });
-
-              // 针对错误步骤添加红色下划线
-                elements.push({
-                    type: 'line',
-                    x: scaledX1 ,
-                    y: scaledY1 + height,
-                    points: [[0, 0], [width, 0]],
-                    strokeColor: COLORS.ERROR,
-                    strokeWidth: 4,
-                    
-                    // fillStyle: 'solid',
-                    // roughness: 0
-                  });
-            }
-
-            // 添加错误步骤的批改分析文本（按固定宽度自动换行）
-            const analysisText = `(${step.step_id}) ` + step.analysis;
-            const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
-            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
-
-            // 根据固定宽度自动换行
-            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
-
-            const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
-            const textContent = lines.join('\n');
-
-          elements.push({
-            type: 'text',
-            x: displayWidth + 20,
-            y: subjectiveY + 20 ,
-            width: maxWidth,
-            height: textHeight,
-            text: textContent,
-            fontSize: fontSizeNumber,
-            fontFamily: 0,
-            textAlign: 'left',
-            verticalAlign: 'top',
-            strokeColor: step.is_correct ? COLORS.WARNING : COLORS.ERROR,
-            fillStyle: 'solid'
-          });
-          // 更新Y坐标：为下一个文本元素预留位置
-          subjectiveY += textHeight + 10;
-        });
-
-        subjectiveY += 40; // 题间间距
+        // 
+      } 
+      
+      if (hasAnalysisText) {
+        subjectiveY += 20;  // 仅当本题有分析文本时增加题间间距
       }
     });
-
+    
     return elements;
   };
 
@@ -726,6 +626,11 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
 
       <div className="editor-content">
         <Excalidraw
+          initialData={{
+            appState: {
+              currentItemStrokeColor: COLORS.ERROR, // 默认画笔/椭圆描边颜色：红色
+            },
+          }}
           excalidrawAPI={(api: ExcalidrawImperativeAPI) => {
             if (api) {
               setExcalidrawAPI(api);
