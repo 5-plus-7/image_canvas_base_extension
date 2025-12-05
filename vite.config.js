@@ -10,6 +10,6 @@ export default defineConfig({
     port: 3001,
   },
   optimizeDeps: {
-    include: ['@excalidraw/excalidraw', 'react', 'react-dom']
+    include: ['@excalidraw/excalidraw', 'react', 'react-dom', 'd3-sankey']
   }
 })
