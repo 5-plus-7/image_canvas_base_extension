@@ -18,6 +18,13 @@ interface AnswerStep {
   analysis: string;
   is_correct: boolean;
   answer_location: [number, number, number, number]; // [x1, y1, x2, y2]
+  models_consistent: boolean;
+  qwen_result: {
+    student_answer: string;
+    analysis: string;
+    is_correct: boolean;
+  };
+
 }
 
 interface QuestionInfo {
@@ -314,8 +321,8 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
           const width = scaledX2 - scaledX1;
           const height = scaledY2 - scaledY1;
 
-          // 针对正确题目添加绿色对勾标记
-          if (step.is_correct) {
+          // 针对正确题目添加绿色对勾标记 [两个模型都判对才展示对钩]
+          if (step.is_correct && step.models_consistent) {
             const centerX = scaledX1 + width / 2;
             const centerY = scaledY1 + height ;
             const checkSize = 0.75 * Math.min(0.12 * displayWidth, Math.max(0.2 * (width+height),0.6 * Math.min(width,height),0.04 * displayWidth));
@@ -349,7 +356,170 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
               roughness: 1.4, // 略微抖动，模拟手写
             });
         
-          } else {
+          } else if(step.is_correct && !step.models_consistent){
+            
+              // 豆包判对，qwen判错，用豆包结果
+              const baseScale = 2.0;              // 原先最大放大倍数
+              const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
+              const scaleFactor =
+                1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
+              // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
+
+              elements.push({
+                type: 'ellipse',
+                x: scaledX1 - width  * scaleFactor * 0.2,
+                y: scaledY1 - height  * scaleFactor * 0.2,
+                width: width * scaleFactor,
+                height: height * scaleFactor,
+                strokeColor: 'purple',
+                backgroundColor: 'transparent',
+                strokeWidth: 3,
+                roughness: 1.4,
+              });
+
+          
+
+            // 添加错误的题号文本
+            if (!addedQuestionTitles.has(question.question_number)) {
+              elements.push({
+                  type: 'text',
+                  x: displayWidth + 20,  // 放置在图片右侧
+                  y: subjectiveY,
+                  width: 300,
+                  height: 30,
+                  text: `题号: ${question.question_number} `,
+                  fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                  fontFamily: 0,
+                  textAlign: 'left',
+                  verticalAlign: 'top',
+                  strokeColor: '#333',
+                  
+                  fillStyle: 'solid'
+                });
+                subjectiveY += 12;
+                addedQuestionTitles.add(question.question_number);
+            }
+
+
+            // 添加错误客观题的批改分析文本（按固定宽度自动换行）
+            // const analysisText = '(' + step.step_id + ') '  + step.analysis;
+            const hasMultipleSteps = question.answer_steps.length > 1;
+            const analysisText = hasMultipleSteps
+            ? `(${step.step_id}) ${step.qwen_result.analysis}`
+            : step.qwen_result.analysis;
+
+            const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
+            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
+            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
+            
+            // 根据固定宽度自动换行
+            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
+            
+            const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
+            const textContent = lines.join('\n');
+            
+            elements.push({
+              type: 'text',
+              x: displayWidth + 20, //scaledX1,
+              y: subjectiveY + 20, //scaledY1 - textHeight - 5,
+              width: maxWidth,
+              height: textHeight,
+              text: textContent,
+              fontSize: fontSizeNumber,
+              fontFamily: 0,
+              textAlign: 'left',
+              verticalAlign: 'top',
+              strokeColor: 'purple',
+              backgroundColor: 'rgba(255,255,255,0.9)',
+              fillStyle: 'solid'
+            });
+
+            subjectiveY += textHeight + 12;
+            hasAnalysisText = true;
+
+
+          }
+            else if(!step.is_correct && !step.models_consistent){
+               // 豆包判错，qwen判对，用豆包结果
+               const baseScale = 2.0;              // 原先最大放大倍数
+               const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
+               const scaleFactor =
+                 1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
+               // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
+               
+               elements.push({
+                 type: 'ellipse',
+                 x: scaledX1 - width  * scaleFactor * 0.2,
+                 y: scaledY1 - height  * scaleFactor * 0.2,
+                 width: width * scaleFactor,
+                 height: height * scaleFactor,
+                 strokeColor: 'orange',
+                 backgroundColor: 'transparent',
+                 strokeWidth: 3,
+                 roughness: 1.4,
+               });
+   
+               // 添加错误的题号文本
+               if (!addedQuestionTitles.has(question.question_number)) {
+                 elements.push({
+                     type: 'text',
+                     x: displayWidth + 20,  // 放置在图片右侧
+                     y: subjectiveY,
+                     width: 300,
+                     height: 30,
+                     text: `题号: ${question.question_number} `,
+                     fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                     fontFamily: 0,
+                     textAlign: 'left',
+                     verticalAlign: 'top',
+                     strokeColor: '#333',
+                     
+                     fillStyle: 'solid'
+                   });
+                   subjectiveY += 12;
+                   addedQuestionTitles.add(question.question_number);
+               }
+   
+   
+               // 添加错误客观题的批改分析文本（按固定宽度自动换行）
+               // const analysisText = '(' + step.step_id + ') '  + step.analysis;
+               const hasMultipleSteps = question.answer_steps.length > 1;
+               const analysisText = hasMultipleSteps
+               ? `(${step.step_id}) ${step.analysis}`
+               : step.analysis;
+   
+               const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
+               const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
+               const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
+               
+               // 根据固定宽度自动换行
+               const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
+               
+               const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
+               const textContent = lines.join('\n');
+               
+               elements.push({
+                 type: 'text',
+                 x: displayWidth + 20, //scaledX1,
+                 y: subjectiveY + 20, //scaledY1 - textHeight - 5,
+                 width: maxWidth,
+                 height: textHeight,
+                 text: textContent,
+                 fontSize: fontSizeNumber,
+                 fontFamily: 0,
+                 textAlign: 'left',
+                 verticalAlign: 'top',
+                 strokeColor: 'orange',
+                 backgroundColor: 'rgba(255,255,255,0.9)',
+                 fillStyle: 'solid'
+               });
+   
+               subjectiveY += textHeight + 12;
+               hasAnalysisText = true;
+             
+            }
+
+            else {
             // 针对错误题目添加红色圆圈
 
             const baseScale = 2.0;              // 原先最大放大倍数
@@ -369,8 +539,6 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
               strokeWidth: 3,
               roughness: 1.4,
             });
-
-            
 
             // 添加错误的题号文本
             if (!addedQuestionTitles.has(question.question_number)) {
@@ -526,13 +694,27 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
 
   if (error) {
     return (
-      <div className="error-message">{error}</div>
+      <div className="grade-excalidraw-preview">
+        <div className="status-message error">
+          <div className="status-text">{error}</div>
+          <button className="status-action-btn" onClick={onBack}>
+            ← 返回
+          </button>
+        </div>
+      </div>
     );
   }
 
   if (gradeDataList.length === 0) {
     return (
-      <div className="empty-message">没有批改数据</div>
+      <div className="grade-excalidraw-preview">
+        <div className="status-message empty">
+          <div className="status-text">没有批改数据</div>
+          <button className="status-action-btn" onClick={onBack}>
+            ← 返回
+          </button>
+        </div>
+      </div>
     );
   }
 

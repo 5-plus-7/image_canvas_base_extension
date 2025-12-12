@@ -4,6 +4,49 @@
   height: 100%;
   width: 100%;
 
+  .status-message {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    background: #fafafa;
+    color: #1f1f1f;
+    padding: 24px;
+
+    &.error {
+      color: #d4380d;
+    }
+
+    .status-text {
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 520px;
+    }
+
+    .status-action-btn {
+      padding: 8px 14px;
+      border: 1px solid #1890ff;
+      background: #fff;
+      color: #1890ff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+
+      &:hover {
+        background: #1890ff;
+        color: #fff;
+      }
+
+      &:active {
+        transform: translateY(1px);
+      }
+    }
+  }
+
   .preview-header {
     display: flex;
     justify-content: space-between;

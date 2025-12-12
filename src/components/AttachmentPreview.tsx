@@ -155,7 +155,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
           url: attachmentUrls[index]
         }));
 
-        // 附件字段的字段名已在上面设置（第81行）
+        // 附件字段的字段名已在上面设置
         setTitle(`${recordTitle || ''} - ${fieldName}`);
         setAttachments(attachmentsWithUrl);
         setCurrentIndex(0);
