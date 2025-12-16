@@ -4,6 +4,8 @@
 
 // 批改结果存放的字段名称
 export const GRADE_FIELD_NAME = '自动批改结果参考';
+// 批改结果JSON链接字段名称（优先使用）
+export const GRADE_FIELD_LINK_NAME = '自动批改结果json链接';
 
 // 图片相关常量
 export const IMAGE_CONFIG = {

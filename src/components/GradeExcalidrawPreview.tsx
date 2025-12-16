@@ -152,114 +152,181 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
     }
   }, [excalidrawAPI]);
 
+  // 根据 URL 后缀猜测 MIME
+  const guessMimeFromUrl = (url: string): string | undefined => {
+    const lower = url.split('?')[0].toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    return undefined;
+  };
+
+  // 带重试的图片加载，校验 Content-Type
+  const loadImageWithRetry = async (url: string, retries = 3): Promise<Blob> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          cache: 'no-cache',
+          headers: { Accept: 'image/*' },
+        });
+
+        if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+
+        const contentType = resp.headers.get('content-type') || '';
+        const disposition = (resp.headers.get('content-disposition') || '').toLowerCase();
+        const isImage =
+          contentType.startsWith('image/') ||
+          contentType === 'application/octet-stream' ||
+          contentType === '';
+
+        if (!isImage) {
+          throw new Error(
+            `不支持预览的响应头: Content-Type=${contentType || '无'}, Content-Disposition=${disposition || '无'}`
+          );
+        }
+
+        const blob = await resp.blob();
+        if (blob.size === 0) throw new Error('空的图片数据');
+        return blob;
+      } catch (err) {
+        if (i === retries - 1) throw err;
+        await new Promise((r) => setTimeout(r, Math.pow(2, i) * 1000));
+      }
+    }
+    throw new Error('所有重试均失败');
+  };
+
+  const blobToDataURL = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('图片读取失败，请检查图片格式'));
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+  const getImageSize = (dataURL: string) =>
+    new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('图片格式无效或已损坏'));
+      img.onload = () => resolve({ width: img.width, height: img.height });
+      img.src = dataURL;
+    });
+
   const loadCurrentImageAndMarkings = async () => {
     const currentData = gradeDataList[currentImageIndex];
     if (!currentData || !currentData.image_url) return;
 
     try {
-      const response = await fetch(currentData.image_url);
-      const imageBlob = await response.blob();
-      
-      const reader = new FileReader();
-      reader.onload = function() {
-        const dataURL = reader.result as string;
-        
-        const img = new Image();
-        img.onload = function() {
-          const imageWidth = img.width;
-          const imageHeight = img.height;
-          
-          const maxWidth = IMAGE_CONFIG.MAX_DISPLAY_WIDTH;
-          const maxHeight = IMAGE_CONFIG.MAX_DISPLAY_HEIGHT;
-          let displayWidth = imageWidth;
-          let displayHeight = imageHeight;
-          
-          if (imageWidth > maxWidth || imageHeight > maxHeight) {
-            const widthRatio = maxWidth / imageWidth;
-            const heightRatio = maxHeight / imageHeight;
-            const scale = Math.min(widthRatio, heightRatio);
-            
-            displayWidth = imageWidth * scale;
-            displayHeight = imageHeight * scale;
-          }
-          
-          const fileId = `image_${Date.now()}`;
-          
-          import('@excalidraw/excalidraw').then((module: any) => {
-            const { convertToExcalidrawElements, MIME_TYPES } = module;
-            
-            const imageFile: BinaryFileData = {
-              id: fileId as any,
-              dataURL: dataURL as any,
-              mimeType: imageBlob.type || MIME_TYPES.jpg,
-              created: Date.now(),
-              lastRetrieved: Date.now(),
+      const imageBlob = await loadImageWithRetry(currentData.image_url);
+      const dataURL = await blobToDataURL(imageBlob);
+      const { width: imageWidth, height: imageHeight } = await getImageSize(dataURL);
+
+      const maxWidth = IMAGE_CONFIG.MAX_DISPLAY_WIDTH;
+      const maxHeight = IMAGE_CONFIG.MAX_DISPLAY_HEIGHT;
+      let displayWidth = imageWidth;
+      let displayHeight = imageHeight;
+
+      if (imageWidth > maxWidth || imageHeight > maxHeight) {
+        const widthRatio = maxWidth / imageWidth;
+        const heightRatio = maxHeight / imageHeight;
+        const scale = Math.min(widthRatio, heightRatio);
+        displayWidth = imageWidth * scale;
+        displayHeight = imageHeight * scale;
+      }
+
+      const fileId = `image_${Date.now()}`;
+
+      import('@excalidraw/excalidraw')
+        .then((module: any) => {
+          const { convertToExcalidrawElements, MIME_TYPES } = module;
+          const guessedMime = guessMimeFromUrl(currentData.image_url);
+          const resolvedMime =
+            imageBlob.type && imageBlob.type !== 'application/octet-stream'
+              ? imageBlob.type
+              : guessedMime || MIME_TYPES.jpg;
+
+          const imageFile: BinaryFileData = {
+            id: fileId as any,
+            dataURL: dataURL as any,
+            mimeType: resolvedMime,
+            created: Date.now(),
+            lastRetrieved: Date.now(),
+          };
+
+          excalidrawAPI.addFiles([imageFile]);
+
+          const imageElement = convertToExcalidrawElements([
+            {
+              type: 'image',
+              x: 0,
+              y: 0,
+              width: displayWidth,
+              height: displayHeight,
+              fileId: fileId,
+              status: 'saved',
+              scale: [1, 1],
+            },
+          ] as any);
+
+          const markingElementsRaw = addMarkingElements(
+            currentData.questions_info,
+            displayWidth / imageWidth,
+            displayHeight / imageHeight,
+            displayWidth
+          );
+          const markingElements = convertToExcalidrawElements(markingElementsRaw as any);
+
+          const allElements = [...imageElement, ...markingElements].map((el: any) => {
+            const fixedEl = {
+              ...el,
+              locked: false,
+              points:
+                el.points || (el.type === 'arrow' ? [[0, 0], [el.width || 0, el.height || 0]] : []),
+              strokeStyle: el.strokeStyle || 'solid',
+              fillStyle: el.fillStyle || 'solid',
             };
 
-            excalidrawAPI.addFiles([imageFile]);
+            if (fixedEl.type === 'arrow' && Array.isArray(fixedEl.points)) {
+              fixedEl.points = fixedEl.points.map((p: any) => (Array.isArray(p) ? p : [0, 0]));
+            }
 
-            const imageElement = convertToExcalidrawElements([
-              {
-                type: 'image',
-                x: 0,
-                y: 0,
-                width: displayWidth,
-                height: displayHeight,
-                fileId: fileId,
-                status: 'saved',
-                scale: [1, 1],
-              }
-            ] as any);
-
-            // 添加标记元素，传递 displayWidth
-            const markingElementsRaw = addMarkingElements(currentData.questions_info, displayWidth / imageWidth, displayHeight / imageHeight, displayWidth);
-            
-            // 使用 convertToExcalidrawElements 转换标记元素
-            const markingElements = convertToExcalidrawElements(markingElementsRaw as any);
-
-            // 确保所有元素都是可编辑的（未锁定），并修复可能的属性问题
-            const allElements = [...imageElement, ...markingElements].map((el: any) => {
-              const fixedEl = {
-                ...el,
-                locked: false,
-                // 确保所有必需属性都存在
-                points: el.points || (el.type === 'arrow' ? [[0, 0], [el.width || 0, el.height || 0]] : []),
-                strokeStyle: el.strokeStyle || 'solid',
-                fillStyle: el.fillStyle || 'solid',
-              };
-              
-              // 对于箭头类型，确保points格式正确
-              if (fixedEl.type === 'arrow' && Array.isArray(fixedEl.points)) {
-                fixedEl.points = fixedEl.points.map((p: any) => Array.isArray(p) ? p : [0, 0]);
-              }
-              
-              return fixedEl;
-            });
-
-            excalidrawAPI.updateScene({
-              elements: allElements,
-            });
-
-            // 记录初始元素数量（图片 + 标记元素）
-            setInitialElementCount(allElements.length);
-            
-            // 重置hasChanges，因为这是初始加载
-            setHasChanges(false);
-
-            setTimeout(() => {
-              excalidrawAPI.scrollToContent(imageElement[0], {
-                fitToViewport: true,
-              });
-            }, 100);
-          }).catch((err) => {
-            console.error('Error loading Excalidraw module:', err);
+            return fixedEl;
           });
-        };
-        img.src = dataURL;
-      };
-      reader.readAsDataURL(imageBlob);
-    } catch (error) {
+
+          excalidrawAPI.updateScene({
+            elements: allElements,
+          });
+
+          setInitialElementCount(allElements.length);
+          setHasChanges(false);
+
+          setTimeout(() => {
+            excalidrawAPI.scrollToContent(imageElement[0], {
+              fitToViewport: true,
+            });
+          }, 100);
+        })
+        .catch((err) => {
+          console.error('Error loading Excalidraw module:', err);
+          setError('加载画布模块失败');
+        });
+    } catch (error: any) {
       console.error('加载图片失败:', error);
+      const errorMessage = error?.message || '加载图片时出错';
+      if (errorMessage.includes('CORS')) {
+        setError('图片加载失败：跨域访问被阻止，请联系管理员');
+      } else if (errorMessage.includes('HTTP error')) {
+        setError(`图片加载失败：服务器返回错误 (${errorMessage})`);
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        setError('图片加载失败：网络连接问题，请检查网络后重试');
+      } else {
+        setError(`图片加载失败：${errorMessage}`);
+      }
     }
   };
 
@@ -274,32 +341,55 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
     const lines: string[] = [];
     const chineseCharWidth = fontSize; // 中文字符宽度约等于字体大小
     const englishCharWidth = fontSize * 0.6; // 英文字符宽度约为字体大小的0.6倍
-    
+    const spaceWidth = englishCharWidth * 0.5;
+    const punctuationPattern = /[，。、“”‘’：《》＜＞<>（）()、；;：:，,.!?！？”“]/;
+    const operatorPattern = /[+\-*/=^%]/;
+
+    // 按中文单字、英文单词、空白、单个符号切分，保留所有字符
+    const tokens = text.match(/([\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]|[A-Za-z0-9]+|\s+|.)/g) || [];
+
     let currentLine = '';
     let currentLineWidth = 0;
-    
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      // 判断是否为中文字符（包括中文标点）
-      const isChinese = /[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(char);
-      const charWidth = isChinese ? chineseCharWidth : englishCharWidth;
-      
-      // 如果当前行加上这个字符会超过最大宽度，则换行
-      if (currentLineWidth + charWidth > maxWidth && currentLine.length > 0) {
-        lines.push(currentLine);
-        currentLine = char;
-        currentLineWidth = charWidth;
-      } else {
-        currentLine += char;
-        currentLineWidth += charWidth;
+
+    const getTokenWidth = (token: string) => {
+      if (/^\s+$/.test(token)) return spaceWidth * token.length;
+      if (/^[A-Za-z0-9]+$/.test(token)) return englishCharWidth * token.length;
+      if (/^[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]$/.test(token)) return chineseCharWidth;
+      return englishCharWidth; // 符号等
+    };
+
+    tokens.forEach((token) => {
+      const isPunct = punctuationPattern.test(token) || operatorPattern.test(token);
+      const isSpace = /^\s+$/.test(token);
+      const tokenWidth = getTokenWidth(token);
+
+      // 不让行首出现空白
+      if (isSpace && currentLineWidth === 0) {
+        return;
       }
-    }
-    
-    // 添加最后一行
+
+      // 如果行首遇到标点/运算符且已有上一行，则附加到上一行末尾
+      if (isPunct && currentLineWidth === 0 && lines.length > 0) {
+        lines[lines.length - 1] += token;
+        return;
+      }
+
+      const wouldExceed = currentLineWidth + tokenWidth > maxWidth;
+
+      if (wouldExceed && currentLineWidth > 0) {
+        lines.push(currentLine);
+        currentLine = '';
+        currentLineWidth = 0;
+      }
+
+      currentLine += token;
+      currentLineWidth += tokenWidth;
+    });
+
     if (currentLine.length > 0) {
       lines.push(currentLine);
     }
-    
+
     return lines;
   };
 
@@ -409,29 +499,28 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
             : step.qwen_result.analysis;
 
             const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
-            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
+            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
+            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
+            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
+            const textHeight = (lines.length + newlineCount) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
             
-            // 根据固定宽度自动换行
-            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
-            
-            const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
-            const textContent = lines.join('\n');
-            
+            // 添加包含分析文本的矩形框
             elements.push({
-              type: 'text',
-              x: displayWidth + 20, //scaledX1,
-              y: subjectiveY + 20, //scaledY1 - textHeight - 5,
+              id: `analysis_box_${qIndex}_${step.step_id}_red`,
+              type: 'rectangle',
+              x: displayWidth + 20,
+              y: subjectiveY + 20,
               width: maxWidth,
               height: textHeight,
-              text: textContent,
-              fontSize: fontSizeNumber,
-              fontFamily: 0,
-              textAlign: 'left',
-              verticalAlign: 'top',
-              strokeColor: 'purple',
-              backgroundColor: 'rgba(255,255,255,0.9)',
-              fillStyle: 'solid'
+              strokeColor: 'white',
+              backgroundColor: 'transparent',
+              label: {
+                text: analysisText,
+                strokeColor: "purple",
+                fontSize: fontSizeNumber,
+                textAlign: 'left',
+                verticalAlign: 'top',
+              },
             });
 
             subjectiveY += textHeight + 12;
@@ -489,30 +578,29 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                : step.analysis;
    
                const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-               const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
-               const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
-               
-               // 根据固定宽度自动换行
-               const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
-               
-               const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
-               const textContent = lines.join('\n');
-               
-               elements.push({
-                 type: 'text',
-                 x: displayWidth + 20, //scaledX1,
-                 y: subjectiveY + 20, //scaledY1 - textHeight - 5,
-                 width: maxWidth,
-                 height: textHeight,
-                 text: textContent,
-                 fontSize: fontSizeNumber,
-                 fontFamily: 0,
-                 textAlign: 'left',
-                 verticalAlign: 'top',
-                 strokeColor: 'orange',
-                 backgroundColor: 'rgba(255,255,255,0.9)',
-                 fillStyle: 'solid'
-               });
+                const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
+                const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
+                const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
+                const textHeight = (lines.length + newlineCount  ) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
+                
+                // 添加包含分析文本的矩形框
+                elements.push({
+                  id: `analysis_box_${qIndex}_${step.step_id}_red`,
+                  type: 'rectangle',
+                  x: displayWidth + 20,
+                  y: subjectiveY + 20,
+                  width: maxWidth,
+                  height: textHeight,
+                  strokeColor: 'white',
+                  backgroundColor: 'transparent',
+                  label: {
+                    text: analysisText,
+                    strokeColor: "orange",
+                    fontSize: fontSizeNumber,
+                    textAlign: 'left',
+                    verticalAlign: 'top',
+                  },
+                });
    
                subjectiveY += textHeight + 12;
                hasAnalysisText = true;
@@ -562,41 +650,65 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
             }
 
 
-            // 添加错误客观题的批改分析文本（按固定宽度自动换行）
-            // const analysisText = '(' + step.step_id + ') '  + step.analysis;
+            // 添加批改分析文本
+
+             // 是否有多步，多步骤前面加上步骤序号
             const hasMultipleSteps = question.answer_steps.length > 1;
             const analysisText = hasMultipleSteps
             ? `(${step.step_id}) ${step.analysis}`
             : step.analysis;
 
             const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE;
-            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH;
+            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
+            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
+            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
+            const textHeight = (lines.length + newlineCount ) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
             
-            // 根据固定宽度自动换行
-            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber);
-            
-            const textHeight = (lines.length + newlineCount)* fontSizeNumber * 1.25;
-            const textContent = lines.join('\n');
-            
+            // 添加包含分析文本的矩形框
             elements.push({
-              type: 'text',
-              x: displayWidth + 20, //scaledX1,
-              y: subjectiveY + 20, //scaledY1 - textHeight - 5,
+              id: `analysis_box_${qIndex}_${step.step_id}_red`,
+              type: 'rectangle',
+              x: displayWidth + 20,
+              y: subjectiveY + 20,
               width: maxWidth,
               height: textHeight,
-              text: textContent,
-              fontSize: fontSizeNumber,
-              fontFamily: 0,
-              textAlign: 'left',
-              verticalAlign: 'top',
-              strokeColor: 'red',
-              backgroundColor: 'rgba(255,255,255,0.9)',
-              fillStyle: 'solid'
+              strokeColor: 'white',
+              backgroundColor: 'transparent',
+              label: {
+                text: analysisText,
+                strokeColor: "red",
+                fontSize: fontSizeNumber,
+                textAlign: 'left',
+                verticalAlign: 'top',
+              },
             });
+            
+            /*
+            elements.push({
+                type: 'text',
+                // containerId: `analysis_box_${qIndex}_${step.step_id}_red`,
+                x: displayWidth + 20, //scaledX1,
+                y: subjectiveY + 20, //scaledY1 - textHeight - 5,
+                width: maxWidth,
+                height: textHeight,
+                text: textContent,
+                fontSize: fontSizeNumber,
+                fontFamily: 0,
+                textAlign: 'left',
+                autoResize: true,
+                verticalAlign: 'top',
+                strokeColor: 'red',
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                fillStyle: 'solid'
+              });
+              */
 
+            // 增加间距，包含矩形框高度再加12像素
+            
             subjectiveY += textHeight + 12;
             hasAnalysisText = true;
+
+            
           }
 
           

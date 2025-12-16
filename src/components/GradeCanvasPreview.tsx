@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { bitable, ITextField, FieldType } from '@lark-base-open/js-sdk';
+import { bitable, FieldType } from '@lark-base-open/js-sdk';
+import { loadGradeData as loadGradeDataFromField } from '../utils/gradeField';
 import './GradeCanvasPreview.scss';
 
 interface AnswerStep {
@@ -53,31 +54,8 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
         return;
       }
 
-      const table = await bitable.base.getTableById(selection.tableId);
-      
-      // 查找"自动批改结果参考"字段
-      const fieldMetaList = await table.getFieldMetaList();
-      const gradeField = fieldMetaList.find(field => field.name === '自动批改结果参考');
-      
-      if (!gradeField) {
-        setError('未找到"自动批改结果参考"字段');
-        setLoading(false);
-        return;
-      }
-
-      const textField = await table.getField<ITextField>(gradeField.id);
-      const value = await textField.getValue(selection.recordId);
-      
-      // ITextField.getValue returns IOpenSegment[], need to convert to string
-      const valueStr = Array.isArray(value) 
-        ? value.map(seg => seg.text || '').join('') 
-        : String(value || '');
-      
-      if (!valueStr || valueStr.trim() === '') {
-        setError('当前记录的"自动批改结果参考"字段为空');
-        setLoading(false);
-        return;
-      }
+      // 使用工具函数加载批改数据（优先使用链接字段，否则使用参考字段）
+      const valueStr = await loadGradeDataFromField(selection.tableId, selection.recordId);
 
       // 解析JSON数据
       let parsedData: GradeData[];
@@ -95,9 +73,9 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
       setGradeDataList(parsedData);
       setCurrentImageIndex(0);
       setError('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading grade data:', err);
-      setError('加载批改数据时出错');
+      setError(err.message || '加载批改数据时出错');
     } finally {
       setLoading(false);
     }
