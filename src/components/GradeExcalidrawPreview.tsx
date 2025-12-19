@@ -8,7 +8,7 @@ import { initializeExcalidrawLibrary } from '../utils/excalidrawLibrary';
 import { getRecordTitle } from '../utils/recordTitle';
 import { showToast } from '../utils/toast';
 import { ConfirmDialog } from './ConfirmDialog';
-import { IMAGE_CONFIG, TEXT_CONFIG, COLORS, EXPORT_FILE_PREFIX, TIMEOUT, GRADE_PREVIEW_CONFIG } from '../constants';
+import { IMAGE_CONFIG, TEXT_CONFIG, COLORS, EXPORT_FILE_PREFIX, TIMEOUT, GRADE_PREVIEW_CONFIG, IMAGE_EXTENSIONS } from '../constants';
 import type { ExcalidrawImperativeAPI, ExcalidrawElement, BinaryFiles, BinaryFileData } from '../types/excalidraw';
 import './GradeExcalidrawPreview.scss';
 
@@ -103,6 +103,38 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
     }
   };
 
+  /**
+   * 判断URL是否是图片类型
+   */
+  const isImageUrl = (url: string): boolean => {
+    if (!url || typeof url !== 'string') return false;
+    
+    // 检查URL扩展名
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname.toLowerCase();
+      if (IMAGE_EXTENSIONS.test(pathname)) {
+        return true;
+      }
+    } catch (e) {
+      // 如果不是有效的URL，尝试直接匹配扩展名
+      if (IMAGE_EXTENSIONS.test(url.toLowerCase())) {
+        return true;
+      }
+    }
+    
+    // 检查URL中是否包含图片相关的查询参数或路径
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('image') || lowerUrl.includes('img') || lowerUrl.includes('photo')) {
+      // 进一步检查是否有图片扩展名
+      if (IMAGE_EXTENSIONS.test(lowerUrl)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   const loadGradeData = async () => {
     try {
       setLoading(true);
@@ -129,7 +161,19 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
         return;
       }
 
-      setGradeDataList(parsedData);
+      // 过滤掉非图片类型的URL
+      const imageOnlyData = parsedData.filter((item: GradeData) => {
+        return item.image_url && isImageUrl(item.image_url);
+      });
+
+      if (imageOnlyData.length === 0) {
+        setError('未找到有效的图片数据');
+        setGradeDataList([]);
+        setLoading(false);
+        return;
+      }
+
+      setGradeDataList(imageOnlyData);
       setCurrentImageIndex(0);
       setError('');
     } catch (err: any) {
@@ -340,9 +384,12 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
   const wrapTextByWidth = (text: string, maxWidth: number, fontSize: number): string[] => {
     const lines: string[] = [];
     const chineseCharWidth = fontSize; // 中文字符宽度约等于字体大小
-    const englishCharWidth = fontSize * 0.6; // 英文字符宽度约为字体大小的0.6倍
-    const spaceWidth = englishCharWidth * 0.5;
-    const punctuationPattern = /[，。、“”‘’：《》＜＞<>（）()、；;：:，,.!?！？”“]/;
+    const uppercaseCharWidth = fontSize * 0.7; // 大写字母70%汉字宽度
+    const lowercaseCharWidth = fontSize * 0.5; // 小写字母50%汉字宽度
+    const numberCharWidth = fontSize * 0.6; // 数字60%汉字宽度
+    const specialCharWidth = fontSize * 0.5; // 特殊字符50%汉字宽度
+    const spaceWidth = fontSize * 0.4; // 空格宽度
+    const punctuationPattern = /[，。、“"''：《》＜＞<>（）()、；;：:，,.!?！？”“]/;
     const operatorPattern = /[+\-*/=^%]/;
 
     // 按中文单字、英文单词、空白、单个符号切分，保留所有字符
@@ -351,11 +398,21 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
     let currentLine = '';
     let currentLineWidth = 0;
 
+    const getCharWidth = (char: string): number => {
+      if (/\s/.test(char)) return spaceWidth; // 空白字符
+      if (/[A-Z]/.test(char)) return uppercaseCharWidth; // 大写字母
+      if (/[a-z]/.test(char)) return lowercaseCharWidth; // 小写字母
+      if (/[0-9]/.test(char)) return numberCharWidth; // 数字
+      if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(char)) return chineseCharWidth; // 中文字符
+      return specialCharWidth; // 特殊字符
+    };
+
     const getTokenWidth = (token: string) => {
-      if (/^\s+$/.test(token)) return spaceWidth * token.length;
-      if (/^[A-Za-z0-9]+$/.test(token)) return englishCharWidth * token.length;
-      if (/^[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]$/.test(token)) return chineseCharWidth;
-      return englishCharWidth; // 符号等
+      let width = 0;
+      for (let i = 0; i < token.length; i++) {
+        width += getCharWidth(token[i]);
+      }
+      return width;
     };
 
     tokens.forEach((token) => {
@@ -395,6 +452,15 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
 
   const addMarkingElements = (questions: QuestionInfo[], scaleX: number, scaleY: number, displayWidth: number) => {
     const elements: any[] = [];
+    
+    // 基于图片宽度计算文本配置（使用比例）
+    const questionFontSize = displayWidth * TEXT_CONFIG.QUESTION_FONT_SIZE_RATIO;
+    const analysisFontSize = displayWidth * TEXT_CONFIG.ANALYSIS_FONT_SIZE_RATIO;
+    const analysisMaxWidth = displayWidth * TEXT_CONFIG.ANALYSIS_MAX_WIDTH_RATIO;
+    const questionSpacing = displayWidth * TEXT_CONFIG.QUESTION_SPACING_RATIO;
+    const analysisSpacing = displayWidth * TEXT_CONFIG.ANALYSIS_SPACING_RATIO;
+    const rightMargin = displayWidth * 0.025; // 图片右侧边距，约为图片宽度的2.5%
+    
     let subjectiveY = 20; // 用于定位右侧批注信息的y轴位置
     const addedQuestionTitles = new Set<string>(); // 记录已添加题号文本的题目，避免重复
 
@@ -461,7 +527,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                 y: scaledY1 - height  * scaleFactor * 0.2,
                 width: width * scaleFactor,
                 height: height * scaleFactor,
-                strokeColor: 'purple',
+                strokeColor: 'red',
                 backgroundColor: 'transparent',
                 strokeWidth: 3,
                 roughness: 1.4,
@@ -473,12 +539,12 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
             if (!addedQuestionTitles.has(question.question_number)) {
               elements.push({
                   type: 'text',
-                  x: displayWidth + 20,  // 放置在图片右侧
+                  x: displayWidth + rightMargin,  // 放置在图片右侧
                   y: subjectiveY,
-                  width: 300,
-                  height: 30,
+                  width: analysisMaxWidth,
+                  height: questionFontSize * 1.5,
                   text: `题号: ${question.question_number} `,
-                  fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                  fontSize: questionFontSize,
                   fontFamily: 0,
                   textAlign: 'left',
                   verticalAlign: 'top',
@@ -486,7 +552,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                   
                   fillStyle: 'solid'
                 });
-                subjectiveY += 12;
+                subjectiveY += questionSpacing;
                 addedQuestionTitles.add(question.question_number);
             }
 
@@ -494,36 +560,35 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
             // 添加错误客观题的批改分析文本（按固定宽度自动换行）
             // const analysisText = '(' + step.step_id + ') '  + step.analysis;
             const hasMultipleSteps = question.answer_steps.length > 1;
+            const analysis = step.qwen_result?.analysis || step.analysis || '';
             const analysisText = hasMultipleSteps
-            ? `(${step.step_id}) ${step.qwen_result.analysis}`
-            : step.qwen_result.analysis;
+            ? `(${step.step_id}) ${analysis}`
+            : analysis;
 
             const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
-            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
-            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
-            const textHeight = (lines.length + newlineCount) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
+            const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
+            const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
             
             // 添加包含分析文本的矩形框
             elements.push({
               id: `analysis_box_${qIndex}_${step.step_id}_red`,
               type: 'rectangle',
-              x: displayWidth + 20,
-              y: subjectiveY + 20,
-              width: maxWidth,
+              x: displayWidth + rightMargin,
+              y: subjectiveY + analysisSpacing,
+              width: analysisMaxWidth,
               height: textHeight,
               strokeColor: 'white',
               backgroundColor: 'transparent',
               label: {
                 text: analysisText,
-                strokeColor: "purple",
-                fontSize: fontSizeNumber,
+                strokeColor: "red",
+                fontSize: analysisFontSize,
                 textAlign: 'left',
                 verticalAlign: 'top',
               },
             });
 
-            subjectiveY += textHeight + 12;
+            subjectiveY += textHeight + analysisSpacing;
             hasAnalysisText = true;
 
 
@@ -542,7 +607,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                  y: scaledY1 - height  * scaleFactor * 0.2,
                  width: width * scaleFactor,
                  height: height * scaleFactor,
-                 strokeColor: 'orange',
+                 strokeColor: 'red',
                  backgroundColor: 'transparent',
                  strokeWidth: 3,
                  roughness: 1.4,
@@ -552,12 +617,12 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                if (!addedQuestionTitles.has(question.question_number)) {
                  elements.push({
                      type: 'text',
-                     x: displayWidth + 20,  // 放置在图片右侧
+                     x: displayWidth + rightMargin,  // 放置在图片右侧
                      y: subjectiveY,
-                     width: 300,
-                     height: 30,
+                     width: analysisMaxWidth,
+                     height: questionFontSize * 1.5,
                      text: `题号: ${question.question_number} `,
-                     fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                     fontSize: questionFontSize,
                      fontFamily: 0,
                      textAlign: 'left',
                      verticalAlign: 'top',
@@ -565,7 +630,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                      
                      fillStyle: 'solid'
                    });
-                   subjectiveY += 12;
+                   subjectiveY += questionSpacing;
                    addedQuestionTitles.add(question.question_number);
                }
    
@@ -573,36 +638,35 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                // 添加错误客观题的批改分析文本（按固定宽度自动换行）
                // const analysisText = '(' + step.step_id + ') '  + step.analysis;
                const hasMultipleSteps = question.answer_steps.length > 1;
+               const analysis = step.analysis || '';
                const analysisText = hasMultipleSteps
-               ? `(${step.step_id}) ${step.analysis}`
-               : step.analysis;
+               ? `(${step.step_id}) ${analysis}`
+               : analysis;
    
                const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-                const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
-                const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
-                const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
-                const textHeight = (lines.length + newlineCount  ) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
+                const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
+                const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
                 
                 // 添加包含分析文本的矩形框
                 elements.push({
                   id: `analysis_box_${qIndex}_${step.step_id}_red`,
                   type: 'rectangle',
-                  x: displayWidth + 20,
-                  y: subjectiveY + 20,
-                  width: maxWidth,
+                  x: displayWidth + rightMargin,
+                  y: subjectiveY + analysisSpacing,
+                  width: analysisMaxWidth,
                   height: textHeight,
                   strokeColor: 'white',
                   backgroundColor: 'transparent',
                   label: {
                     text: analysisText,
-                    strokeColor: "orange",
-                    fontSize: fontSizeNumber,
+                    strokeColor: "red",
+                    fontSize: analysisFontSize,
                     textAlign: 'left',
                     verticalAlign: 'top',
                   },
                 });
    
-               subjectiveY += textHeight + 12;
+               subjectiveY += textHeight + analysisSpacing;
                hasAnalysisText = true;
              
             }
@@ -632,12 +696,12 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
             if (!addedQuestionTitles.has(question.question_number)) {
               elements.push({
                   type: 'text',
-                  x: displayWidth + 20,  // 放置在图片右侧
+                  x: displayWidth + rightMargin,  // 放置在图片右侧
                   y: subjectiveY,
-                  width: 300,
-                  height: 30,
+                  width: analysisMaxWidth,
+                  height: questionFontSize * 1.5,
                   text: `题号: ${question.question_number} `,
-                  fontSize: TEXT_CONFIG.QUESTION_FONT_SIZE,
+                  fontSize: questionFontSize,
                   fontFamily: 0,
                   textAlign: 'left',
                   verticalAlign: 'top',
@@ -645,7 +709,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
                   
                   fillStyle: 'solid'
                 });
-                subjectiveY += 12;
+                subjectiveY += questionSpacing;
                 addedQuestionTitles.add(question.question_number);
             }
 
@@ -654,30 +718,29 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
 
              // 是否有多步，多步骤前面加上步骤序号
             const hasMultipleSteps = question.answer_steps.length > 1;
+            const analysis = step.analysis || '';
             const analysisText = hasMultipleSteps
-            ? `(${step.step_id}) ${step.analysis}`
-            : step.analysis;
+            ? `(${step.step_id}) ${analysis}`
+            : analysis;
 
             const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const fontSizeNumber = TEXT_CONFIG.ANALYSIS_FONT_SIZE; // 字体大小
-            const maxWidth = TEXT_CONFIG.ANALYSIS_MAX_WIDTH; // 矩形框最大宽度
-            const lines = wrapTextByWidth(analysisText, maxWidth, fontSizeNumber); // 按固定宽度自动换行，返回行数
-            const textHeight = (lines.length + newlineCount ) * fontSizeNumber * 1.25;  // 矩形框高度 = (行数 + 换行符 + 1) * 字体大小 * 行高系数1.25  行数+1是为了兼容一些自动换行导致的行数统计不准
+            const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
+            const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
             
             // 添加包含分析文本的矩形框
             elements.push({
               id: `analysis_box_${qIndex}_${step.step_id}_red`,
               type: 'rectangle',
-              x: displayWidth + 20,
-              y: subjectiveY + 20,
-              width: maxWidth,
+              x: displayWidth + rightMargin,
+              y: subjectiveY + analysisSpacing,
+              width: analysisMaxWidth,
               height: textHeight,
               strokeColor: 'white',
               backgroundColor: 'transparent',
               label: {
                 text: analysisText,
                 strokeColor: "red",
-                fontSize: fontSizeNumber,
+                fontSize: analysisFontSize,
                 textAlign: 'left',
                 verticalAlign: 'top',
               },
@@ -705,7 +768,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
 
             // 增加间距，包含矩形框高度再加12像素
             
-            subjectiveY += textHeight + 12;
+            subjectiveY += textHeight + 24;
             hasAnalysisText = true;
 
             
@@ -717,7 +780,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
       } 
       
       if (hasAnalysisText) {
-        subjectiveY += 20;  // 仅当本题有分析文本时增加题间间距
+        subjectiveY += analysisSpacing;  // 仅当本题有分析文本时增加题间间距
       }
     });
     

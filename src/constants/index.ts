@@ -28,10 +28,19 @@ export const PDF_CONFIG = {
 
 // 文本相关常量
 export const TEXT_CONFIG = {
-  ANALYSIS_MAX_WIDTH: 400, // 批改分析文本最大宽度，像素
-  ANALYSIS_FONT_SIZE: 20, // 批改分析文本字体大小
-  QUESTION_FONT_SIZE: 24, // 题号文本字体大小
-  LINE_HEIGHT_RATIO: 1.25, // 行高比例
+  // 旧配置（保留兼容性，但已弃用）
+  ANALYSIS_MAX_WIDTH: 400, // 批改分析文本最大宽度，像素（已弃用，使用比例配置）
+  ANALYSIS_FONT_SIZE: 20, // 批改分析文本字体大小（已弃用，使用比例配置）
+  QUESTION_FONT_SIZE: 24, // 题号文本字体大小（已弃用，使用比例配置）
+  // LINE_HEIGHT_RATIO: 1.25, // 行高比例（已弃用，使用比例配置）
+  
+  // 新配置（基于图片宽度的百分比）
+  QUESTION_FONT_SIZE_RATIO: 0.024, // 题号字体大小 = 图片宽度 * 0.024
+  ANALYSIS_FONT_SIZE_RATIO: 0.020, // 批注字体大小 = 图片宽度 * 0.02
+  ANALYSIS_MAX_WIDTH_RATIO: 0.5,   // 批注区域宽度 = 图片宽度 * 0.5
+  LINE_HEIGHT_RATIO: 1.5,          // 行高系数 = 字体大小 * 1.5
+  QUESTION_SPACING_RATIO: 0.015,    // 题号间距 = 图片宽度 * 0.015
+  ANALYSIS_SPACING_RATIO: 0.02,     // 批注间距 = 图片宽度 * 0.02
 } as const;
 
 // 颜色常量
