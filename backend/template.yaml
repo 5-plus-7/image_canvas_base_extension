@@ -1,0 +1,52 @@
+# 腾讯云SCF Serverless应用模板
+# 使用此模板可通过Serverless Framework部署
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: Python3.9
+    Environment:
+      Variables:
+        # 请在部署时配置这些环境变量
+        FEISHU_APP_ID: ""
+        FEISHU_APP_SECRET: ""
+        TEST_APP_TOKEN: ""
+        TEST_TABLE_ID: ""
+        PROD_APP_TOKEN: ""
+        PROD_TABLE_ID: ""
+
+Resources:
+  GradeQueryAPI:
+    Type: TencentCloud::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: scf_handler.main_handler
+      Description: 批改结果查询API服务
+      Runtime: Python3.9
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          FEISHU_APP_ID: ${env:FEISHU_APP_ID}
+          FEISHU_APP_SECRET: ${env:FEISHU_APP_SECRET}
+          TEST_APP_TOKEN: ${env:TEST_APP_TOKEN}
+          TEST_TABLE_ID: ${env:TEST_TABLE_ID}
+          PROD_APP_TOKEN: ${env:PROD_APP_TOKEN}
+          PROD_TABLE_ID: ${env:PROD_TABLE_ID}
+      Events:
+        ApiGatewayEvent:
+          Type: ApiGateway
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            EnableCORS: true
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway URL"
+    Value:
+      Fn::GetAtt:
+        - ApiGatewayEvent
+        - ServiceId
+
