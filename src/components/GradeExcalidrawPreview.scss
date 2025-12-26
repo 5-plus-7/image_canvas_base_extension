@@ -1,0 +1,248 @@
+.grade-excalidraw-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+
+  .status-message {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    background: #fafafa;
+    color: #1f1f1f;
+    padding: 24px;
+
+    &.error {
+      color: #d4380d;
+    }
+
+    .status-text {
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 520px;
+    }
+
+    .status-action-btn {
+      padding: 8px 14px;
+      border: 1px solid #1890ff;
+      background: #fff;
+      color: #1890ff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+
+      &:hover {
+        background: #1890ff;
+        color: #fff;
+      }
+
+      &:active {
+        transform: translateY(1px);
+      }
+    }
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e5e5;
+    flex-shrink: 0;
+    background: #fff;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+
+      .record-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        position: relative;
+
+        .record-title {
+          font-size: 14px;
+          color: #666;
+          font-weight: 500;
+        }
+
+        .tooltip-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+
+          .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #d9d9d9;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: help;
+            transition: background-color 0.2s;
+
+            &:hover {
+              background-color: #40a9ff;
+            }
+          }
+
+          .tooltip-content {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 8px;
+            padding: 8px 12px;
+            background-color: #333;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1.5;
+            border-radius: 4px;
+            width: 300px;
+            max-width: calc(100vw - 32px); // 不超过屏幕宽度，左右各留 16px 边距
+            box-sizing: border-box;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 1000;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: normal;
+
+            &::before {
+              content: '';
+              position: absolute;
+              bottom: 100%;
+              left: 50%;
+              transform: translateX(-50%);
+              border: 4px solid transparent;
+              border-bottom-color: #333;
+            }
+
+            .tooltip-link {
+              color: #40a9ff;
+              text-decoration: underline;
+              margin-left: 4px;
+              white-space: nowrap; // 链接不换行
+
+              &:hover {
+                color: #69c0ff;
+              }
+            }
+
+            // 显示状态
+            &.show {
+              opacity: 1;
+              visibility: visible;
+              pointer-events: auto; // 允许鼠标交互
+            }
+          }
+        }
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+
+      .attachment-nav-inline {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .nav-btn {
+          background: #fff;
+          border: 1px solid #d9d9d9;
+          border-radius: 4px;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 18px;
+          color: #333;
+          transition: all 0.2s;
+          padding: 0;
+
+          &:hover:not(:disabled) {
+            background: #f0f0f0;
+            border-color: #40a9ff;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+
+        .nav-indicator {
+          font-size: 13px;
+          color: #666;
+          min-width: 50px;
+          text-align: center;
+        }
+      }
+    }
+  }
+
+  .editor-content {
+    flex: 1;
+    overflow: auto;
+    background: #f5f5f5;
+  }
+
+  .confirm-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000; // 确保显示在 Excalidraw 画布之上
+
+    .confirm-dialog {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      min-width: 400px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      position: relative;
+      z-index: 10001;
+
+      .dialog-title {
+        font-size: 16px;
+        font-weight: 500;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+      }
+
+      .dialog-content {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 24px;
+        line-height: 1.5;
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+    }
+  }
+}

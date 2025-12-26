@@ -1,0 +1,276 @@
+[
+  {
+    "image_url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/Kb0nsE73ghiwivtXegQcDMUZnNb-tN9Kxj-BV-CF-43.png",
+    "markup_status": "completed",
+    "questions_info": [
+      {
+        "question_number": "1",
+        "question_type": "objective",
+        "question_text": "若x,y满足$$(x+y)^2-\frac{8},{{3}xy=2$$，则（ ）A．$$y-x\\\\geq -\\\\sqrt{3}$$ B．$$y-x\\\\leq \\\\sqrt{3}$$ C．$$xy>\frac{3},{{2}$$ D．$$xy\\\\geq -\frac{3},{{4}$$",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "AB",
+            "analysis": "回答不完整。这是一道多选题，正确答案是ABD。你正确地选择了A和B，但遗漏了选项D。题目条件 $$(x+y)^2 - \frac{8},{{3}xy = 2$$ 可以化为 $$x^2 - \frac{2},{{3}xy + y^2 = 2$$。根据基本不等式 $$x^2+y^2 \\geq 2xy$$，可以推出 $$2+\frac{2},{{3}xy \\geq 2xy$$，解得 $$xy \\leq \frac{3},{{2}$$。同时，$$x^2+y^2 \\geq -2xy$$，可以推出 $$2+\frac{2},{{3}xy \\geq -2xy$$，解得 $$xy \\geq -\frac{3},{{4}$$，所以D选项是正确的。请注意多选题要选出所有正确选项哦。",
+            "is_correct": false,
+            "answer_location": [
+              663,
+              165,
+              739,
+              243
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "2",
+        "question_type": "objective",
+        "question_text": "已知x,y为正实数，则$$\frac{y},{{x}+\frac{16x},{{2x+y}$$的最小值为<blank></blank>.",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "6",
+            "analysis": "回答正确！本题可以通过换元法，令$$t = y/x$$，将原式转化为关于t的函数求最小值，也可以通过巧妙的配凑使用基本不等式。这道题有一定难度，能做对说明你对基本不等式的应用非常熟练，很棒！",
+            "is_correct": true,
+            "answer_location": [
+              766,
+              405,
+              860,
+              476
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "3",
+        "question_type": "objective",
+        "question_text": "若正实数x,y满足$$2x+y=1$$，则下列说法正确的是（ ）A．xy有最大值为$$\frac{1},{{8}$$ B．$$\frac{1},{{x}+\frac{4},{{y}$$有最小值为$$6+4\\\\sqrt{2}$$ C．$$4x^2+y^2$$有最小值为$$\frac{1},{{2}$$ D．$$x(y+1)$$有最大值为$$\frac{1},{{2}$$",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "AB",
+            "is_correct": false,
+            "analysis": "回答不完整，正确答案为ABC。你正确判断了A和B，但漏选了C选项。对于C选项，可以利用柯西不等式或者基本不等式的思想：$$( (2x)^2 + y^2 )(1^2+1^2) \\geq (2x \\cdot 1 + y \\cdot 1)^2$$，即 $$(4x^2+y^2) \\cdot 2 \\geq 1^2$$，所以 $$4x^2+y^2 \\geq \frac{1},{{2}$$。因此C选项也是正确的。下次做多选题时要更仔细地检查每一个选项哦。",
+            "answer_location": [
+              865,
+              580,
+              960,
+              685
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "4",
+        "question_type": "objective",
+        "question_text": "若正数x，y满足$$4x+y=4$$，则$$\frac{1},{{x}+\frac{1},{{y}$$的最小值为（ ）A．2 B．$$\frac{9},{{4}$$ C．3 D．$$\frac{8},{{3}$$",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "B",
+            "is_correct": true,
+            "analysis": "回答正确。本题是基本不等式中经典的“1的妙用”题型。将所求式子乘以 $$(4x+y)/4$$，即 $$\frac{1},{{4}(4x+y)(\frac{1},{{x}+\frac{1},{{y})$$，展开后利用基本不等式即可求得最小值。你准确地选择了正确答案，说明对这类题型掌握得很好。",
+            "answer_location": [
+              824,
+              938,
+              888,
+              1031
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "5",
+        "question_type": "subjective",
+        "question_text": "已知正数a，b满足$$a+2b=ab$$.(1)求a+b的最小值；(2)求$$\frac{2a},{{a-2}+\frac{8b},{{b-1}$$的最小值.",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "∵ab≠0, ∴ (a+2b)/ab = 1/b + 2/a = 1",
+            "is_correct": true,
+            "answer_location": [
+              62,
+              1459,
+              698,
+              1574
+            ],
+            "analysis": "非常好的第一步！通过对已知条件 $$a+2b=ab$$ 进行变形，得到了一个常数“1”，这是解决本题的关键，为后续使用基本不等式创造了条件。"
+          },
+          {
+            "step_id": 2,
+            "student_answer": "∴ (a+b)(1/b + 2/a) = a/b + 1 + 2 + 2b/a >= 3+2√2",
+            "is_correct": true,
+            "answer_location": [
+              61,
+              1550,
+              819,
+              1640
+            ],
+            "analysis": "思路正确，巧妙地将所求的 $$a+b$$ 与上一步得到的常数“1”的表达式相乘，展开后利用基本不等式 $$a/b + 2b/a \\geq 2\\sqrt{(a/b)(2b/a)} = 2\\sqrt{2}$$，推导过程和计算都非常准确。"
+          },
+          {
+            "step_id": 3,
+            "student_answer": "∴ a+b的最小值为3+2√2",
+            "is_correct": false,
+            "answer_location": [
+              58,
+              1633,
+              497,
+              1718
+            ],
+            "analysis": "结论正确。基于前面的正确推导，得出了 $$a+b$$ 的最小值。整个解题过程堪称典范！"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "image_url": "https://algo-public.s3.cn-north-1.amazonaws.com.cn/feishu/Kb0nsE73ghiwivtXegQcDMUZnNb-tN9Kxj-BW-CG-43.png",
+    "markup_status": "completed",
+    "questions_info": [
+      {
+        "question_number": "6",
+        "question_type": "subjective",
+        "question_text": "已知a>0, b>0, a+b=1, 求证: (1) 1/a + 1/b >= 4; (2) (1+1/a)(1+2/b) >= 8+4√3.",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": " (1/a + 1/b)(a+b)。",
+            "is_correct": true,
+            "analysis": "方法非常巧妙！利用已知条件 a+b=1 进行代换，是解决这类问题的经典思路。",
+            "answer_location": [
+              87.56756756756758,
+              306.4944944944945,
+              337.83783783783787,
+              366.07107107107106
+            ]
+          },
+          {
+            "step_id": 2,
+            "student_answer": " 1 + b/a + a/b + 1 >= 4。",
+            "is_correct": true,
+            "analysis": "展开和应用基本不等式的过程完全正确，论证严谨，结论无误。",
+            "answer_location": [
+              330.3243243243243,
+              310.990990990991,
+              568.6486486486486,
+              370.86886886886884
+            ]
+          },
+          {
+            "step_id": 3,
+            "student_answer": "a+b=1  (1 + (a+b)/a)(1 + 2(a+b)/b)。",
+            "is_correct": true,
+            "analysis": "思路与第一问一脉相承，再次漂亮地运用了“1的代换”，将表达式变形，为后续使用基本不等式创造了条件。",
+            "answer_location": [
+              85.4054054054054,
+              370.1791791791792,
+              572.972972972973,
+              420.86886886886884
+            ]
+          },
+          {
+            "step_id": 4,
+            "student_answer": " (2+b/a)(3+2a/b)  8 + 3b/a + 4a/b。",
+            "is_correct": true,
+            "analysis": "代数变形和展开计算准确无误，步骤清晰。",
+            "answer_location": [
+              650.8918918918919,
+              105.42142142142143,
+              1040.3783783783783,
+              165.4074074074074
+            ]
+          },
+          {
+            "step_id": 5,
+            "student_answer": " >= 8 + 2√(3b/a * 4a/b) = 8 + 4√3",
+            "is_correct": true,
+            "analysis": "最后一步基本不等式的应用非常精彩，准确地找到了不等式成立的条件并得出了最终的证明结论。",
+            "answer_location": [
+              648.5945945945946,
+              167.03803803803805,
+              1018.6486486486486,
+              220.86886886886884
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "7",
+        "question_type": "objective",
+        "question_text": "已知实数x,y满足x>3, 且xy+2x-3y=12, 则x+y的最小值为( ) A. 1+2√6 B. 8 C. 6√2 D. 1+2√3",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "A",
+            "is_correct": true,
+            "analysis": "回答正确。本题考察利用因式分解和基本不等式求最值。将条件xy+2x-3y=12变形为(x-3)(y+2)=6。因为x>3，所以x-3>0。令x-3=a, y+2=b，则ab=6，x+y=(a+3)+(b-2)=a+b+1。因为a,b为正数，所以a+b≥2√ab=2√6。因此x+y≥2√6+1。当且仅当a=b=√6时取等号，即x=3+√6, y=√6-2时，x+y取得最小值1+2√6。同学的选择完全正确。",
+            "answer_location": [
+              882.1621621621622,
+              446.9559559559559,
+              941.6216216216217,
+              515.3513513513514
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "8",
+        "question_type": "objective",
+        "question_text": "若实数x,y满足x²+y²+xy=1, 则x+y的最大值是( ) A. 2√3/3 B. -2√3/3 C. √3/3 D. -√3/3",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "A",
+            "is_correct": true,
+            "analysis": "回答正确。本题考察在约束条件下使用基本不等式求最值。令x+y=t，则x²+y²=(x+y)²-2xy=t²-2xy。代入原式得t²-2xy+xy=1，即t²-xy=1，所以xy=t²-1。又因为(x+y)²≥4xy，所以t²≥4(t²-1)，解得-2√3/3 ≤ t ≤ 2√3/3。因此x+y的最大值为2√3/3。同学的选择正确。",
+            "answer_location": [
+              740.5405405405405,
+              679.1821821821823,
+              798.9189189189188,
+              761.892892892893
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "9",
+        "question_type": "objective",
+        "question_text": "(多选)若实数a,b满足a²+b²-nab=9, n∈R, 则下列说法正确的为( ) A.当n=1时, a²+b²的最大值为18 B.当n=1时, a+b的最小值为-6 C.当n=3时, ab的最小值为-9 D.当n=3时, a²+b²的最小值为18/5",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "BD",
+            "is_correct": true,
+            "analysis": "回答正确。本题是多选题，考察在不同参数n下，利用基本不等式对表达式进行求最值判断。\n对于A，当n=1时，a²+b²=9+ab。又a²+b²≥2|ab|，所以9+ab≥2|ab|，解得ab≤9或ab≥-3。当ab=9时，a²+b²=18，但此时a=b=3或a=b=-3，a²+b²=18=2ab，满足条件，所以a²+b²的最大值不是18，它没有最大值。学生划掉了A选项中的18，判断正确。\n对于B，当n=1时，(a+b)²=a²+b²+2ab=9+3ab。因为ab≥-3，所以9+3ab≥0，(a+b)²≥0恒成立。又a²+b²≥-2ab，所以9+ab≥-2ab，解得ab≥-3。所以(a+b)²=9+3ab≥9+3(-3)=0。当ab=-3时，a+b=0。但题目问的是最小值，(a+b)²=a²+b²+2ab=9+3ab, a²+b²=9+ab, (a+b)²=a²+b²+2ab, (a+b)²=9+ab+2ab=9+3ab。由a²+b²≥-2ab, 9+ab≥-2ab, 3ab≥-9, ab≥-3。所以(a+b)²=9+3ab≥9-9=0。由a²+b²≥2ab, 9+ab≥2ab, ab≤9。所以(a+b)²=9+3ab≤9+27=36, 所以-6≤a+b≤6。最小值是-6，B正确。\n对于C，当n=3时，a²+b²=9+3ab。因为a²+b²≥2|ab|，所以9+3ab≥2|ab|。若ab≥0，则9+3ab≥2ab，ab≥-9，结合ab≥0得ab≥0。若ab<0，则9+3ab≥-2ab，5ab≥-9，ab≥-9/5。综合得ab≥-9/5，所以ab的最小值为-9/5，C错误。\n对于D，当n=3时，a²+b²=9+3ab。由C知ab≥-9/5，所以a²+b²=9+3ab≥9+3(-9/5)=9-27/5=18/5。D正确。\n综上，正确选项为BD，同学的判断完全正确。",
+            "answer_location": [
+              71.35135135135134,
+              1010.025025025025,
+              161.08108108108107,
+              1089.5545545545544
+            ]
+          }
+        ]
+      },
+      {
+        "question_number": "10",
+        "question_type": "objective",
+        "question_text": "已知正数x,y满足2xy+x+2y=3, 则1/(1+x) + 1/(1+2y)的最小值是<blank></blank>.",
+        "answer_steps": [
+          {
+            "step_id": 1,
+            "student_answer": "",
+            "is_correct": false,
+            "analysis": "回答错误。本题未作答。正确答案是1。解题思路：这是一道典型的“1的代换”和柯西不等式或基本不等式的应用题。由2xy+x+2y=3，可得(1+x)(1+2y) = 1+2y+x+2xy = 1+3=4。令a=1+x, b=1+2y，则ab=4。所求式子为1/a + 1/b。因为x,y为正数，所以a>1, b>1。所以1/a + 1/b = (a+b)/ab = (a+b)/4。由基本不等式，a+b ≥ 2√ab = 2√4 = 4。所以(a+b)/4 ≥ 4/4 = 1。当且仅当a=b=2时取等号，即1+x=2, 1+2y=2，解得x=1, y=1/2，满足原条件。所以最小值为1。",
+            "answer_location": [
+              910.2702702702702,
+              1399.7197197197197,
+              1012.9729729729729,
+              1441.0750750750751
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
