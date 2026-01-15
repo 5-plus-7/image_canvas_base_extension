@@ -18,9 +18,8 @@ export const initializeExcalidrawLibrary = (excalidrawAPI: ExcalidrawImperativeA
       strokeWidth: 3,
       fillStyle: 'solid',
     }],
-    // 2. red check
+    // 2. Red check
     [{
-
       type: 'draw',
       x: 0,
       y: 0,
@@ -38,7 +37,6 @@ export const initializeExcalidrawLibrary = (excalidrawAPI: ExcalidrawImperativeA
         [39,1],
         [48,-14],
         [64,-48],
-        
       ],
     }],
     // 3. Red arrow
@@ -131,8 +129,24 @@ export const initializeExcalidrawLibrary = (excalidrawAPI: ExcalidrawImperativeA
       strokeColor: '#40c057',
       fontFamily: 4,
     }],
-    
-    // 8. Red cross
+    // 8. Green check
+    [{
+      type: 'draw',
+      x: 0,
+      y: 0,
+      strokeColor: '#40c057',
+      strokeWidth: 6,
+      points: [
+        [0, 30],
+        [10, 40],
+        [15, 45],
+        [20, 50],
+        [40, 20],
+        [50, 10],
+        [60, 0],
+      ],
+    }],
+    // 9. Red cross
     [{
       type: 'draw',
       x: 0,

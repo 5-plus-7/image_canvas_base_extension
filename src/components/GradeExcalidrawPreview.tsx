@@ -615,7 +615,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({
               y: subjectiveY + analysisSpacing,
               width: analysisMaxWidth,
               height: textHeight,
-              strokeColor: 'transparent',
+strokeColor: 'transparent',
               backgroundColor: 'transparent',
               label: {
                 text: analysisText,
@@ -773,7 +773,7 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({
               y: subjectiveY + analysisSpacing,
               width: analysisMaxWidth,
               height: textHeight,
-              strokeColor: 'transparent',
+strokeColor: 'transparent',
               backgroundColor: 'transparent',
               label: {
                 text: analysisText,
