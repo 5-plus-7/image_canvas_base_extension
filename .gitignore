@@ -27,6 +27,3 @@ yarn-error.log*
 
 # deployment packages
 *.zip
-
-# build output
-/dist
