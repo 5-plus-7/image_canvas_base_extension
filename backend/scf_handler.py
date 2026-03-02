@@ -1,7 +1,6 @@
 """
 腾讯云SCF入口函数
-直接处理API Gateway事件，不使用Mangum适配器
-此文件需要复制到scf_package目录中用于部署
+处理函数URL/API Gateway事件，将HTTP请求转发给FastAPI应用
 """
 import json
 import os
@@ -47,7 +46,7 @@ def main_handler(event, context):
         try:
             if body and headers.get("content-type", "").startswith("application/json"):
                 body = json.loads(body)
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError):
             pass  # 保持原始字符串
         
         # 构建ASGI scope
@@ -124,7 +123,7 @@ async def handle_asgi_request(scope, body):
         # 尝试解析为JSON
         body_json = json.loads(response_body.decode())
         body_str = json.dumps(body_json, ensure_ascii=False)
-    except:
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         # 如果不是JSON，直接解码
         body_str = response_body.decode('utf-8')
     

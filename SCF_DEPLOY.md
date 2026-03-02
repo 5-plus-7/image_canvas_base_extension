@@ -12,11 +12,16 @@
 
 ### 1. 准备部署包
 
+> **注意**：必须在 `backend/` 目录下执行以下命令，确保 `scf_handler.py` 位于 zip 根目录。
+
 ```bash
 cd backend
 
-# 安装依赖到当前目录
-pip install -r requirements.txt -t .
+# 安装依赖到当前目录（用于SCF部署，需指定Linux平台）
+pip install -r requirements.txt -t . \
+    --platform manylinux2014_x86_64 \
+    --only-binary=:all: \
+    --python-version 3.9
 
 # 创建部署包（排除不必要的文件）
 zip -r function.zip . \
@@ -29,7 +34,6 @@ zip -r function.zip . \
     -x ".venv/*" \
     -x "*.egg-info/*" \
     -x "*.md" \
-    -x "deploy.sh" \
     -x "template.yaml"
 ```
 
@@ -67,82 +71,41 @@ zip -r function.zip . \
    - **内存**：256MB
    - **临时磁盘空间**：512MB（如果需要）
 
-### 4. 创建API网关触发器
+### 4. 启用函数URL
 
-1. 在函数详情页面，点击"触发管理" → "创建触发器"
-2. 选择**API Gateway**
-3. 配置触发器：
-   - **API服务类型**：新建API服务
-   - **请求方法**：ANY（支持所有HTTP方法）
-   - **发布环境**：发布
-   - **鉴权方式**：免鉴权（或根据需要选择）
-   - **路径**：`/{proxy+}`（支持所有路径）
-   - **启用CORS**：是
-4. 点击"提交"
+> **注意**：API 网关触发器已于2024年7月停止新建，请使用函数URL代替。
 
-### 5. 获取访问地址
+1. 在函数详情页面，进入"函数管理" → "函数URL"
+2. 开启函数URL
+3. 认证方式选择"不认证"（或根据需要选择）
 
-创建触发器后，会生成一个API Gateway访问地址，例如：
+开启后会生成访问地址，例如：
 ```
-https://service-xxxxx-xxxxx.ap-guangzhou.apigateway.myqcloud.com/release/
+https://xxxxxxxxxx-xxxxxxxxxx.ap-beijing.tencentscf.com
 ```
 
-## 方式二：使用Serverless Framework部署
+### 5. 配置前端API地址
 
-### 1. 安装Serverless Framework
+在前端项目根目录编辑 `.env.local` 文件：
 
 ```bash
-npm install -g serverless
+VITE_API_BASE_URL=https://xxxxxxxxxx-xxxxxxxxxx.ap-beijing.tencentscf.com
 ```
 
-### 2. 配置腾讯云凭证
+然后重新构建前端：
 
 ```bash
-# 配置腾讯云账号信息
-serverless config credentials \
-  --provider tencent \
-  --key YOUR_SECRET_ID \
-  --secret YOUR_SECRET_KEY
+npm run build
 ```
 
-### 3. 部署
-
-```bash
-cd backend
-
-# 使用部署脚本
-./deploy.sh
-
-# 或手动部署
-serverless deploy
-```
-
-## 配置前端API地址
-
-部署完成后，在前端项目的环境变量或配置文件中设置API地址：
-
-### 方式1：使用环境变量（推荐）
-
-创建`.env`文件或配置Vite环境变量：
-
-```bash
-VITE_API_BASE_URL=https://your-api-gateway-url
-```
-
-### 方式2：直接修改代码
-
-在`src/components/GradeQueryPage.tsx`中修改API地址：
-
-```typescript
-const apiUrl = 'https://your-api-gateway-url';
-```
+将更新后的 `dist/` 目录部署到飞书插件后台。
 
 ## 测试API
 
 ### 使用curl测试
 
 ```bash
-curl -X POST https://your-api-gateway-url/api/grade-data \
+curl -X POST https://your-function-url/api/grade-data \
   -H "Content-Type: application/json" \
   -d '{
     "environment": "test",
@@ -153,7 +116,7 @@ curl -X POST https://your-api-gateway-url/api/grade-data \
 ### 使用Postman测试
 
 1. 创建POST请求
-2. URL: `https://your-api-gateway-url/api/grade-data`
+2. URL: `https://your-function-url/api/grade-data`
 3. Headers: `Content-Type: application/json`
 4. Body (raw JSON):
 ```json
@@ -169,12 +132,6 @@ curl -X POST https://your-api-gateway-url/api/grade-data \
 
 ```
 https://your-frontend-url/?mode=query
-```
-
-或
-
-```
-https://your-frontend-url/query
 ```
 
 ## 常见问题
@@ -201,32 +158,50 @@ https://your-frontend-url/query
 
 ### 4. CORS错误
 
-在API Gateway触发器配置中启用CORS，或在代码中配置正确的CORS设置。
+函数URL默认支持CORS，后端代码中已配置 `Access-Control-Allow-Origin: *`。如需限制来源，修改后端 `.env` 中的 `CORS_ORIGINS` 配置。
+
+### 5. pydantic版本冲突
+
+如果部署后报错 `No module named 'pydantic_core._pydantic_core'`，说明 `backend/` 目录下残留了 pydantic v2 的文件。解决方法：
+```bash
+cd backend
+rm -rf pydantic pydantic_core pydantic-2.* pydantic_core-*
+pip install pydantic==1.10.12 -t . --platform manylinux2014_x86_64 --only-binary=:all: --python-version 3.9
+```
 
 ## 监控和日志
 
 1. 在腾讯云控制台查看函数执行日志
-2. 查看API Gateway的访问日志
-3. 监控函数的调用次数和错误率
+2. 监控函数的调用次数和错误率
 
 ## 更新部署
 
-### 更新代码
+### 更新后端代码
 
 ```bash
-# 修改代码后，重新打包
-zip -r function.zip . -x "*.git*" "*__pycache__*" "*.pyc" "env/*" "venv/*" "*.md"
+cd backend
 
-# 在控制台上传新的zip包
-# 或使用Serverless Framework
-serverless deploy
+# 修改代码后，重新打包
+zip -r function.zip . \
+    -x "*.git*" "*__pycache__*" "*.pyc" "*.pyo" \
+    -x "env/*" "venv/*" ".venv/*" "*.egg-info/*" \
+    -x "*.md" "template.yaml"
+
+# 在腾讯云控制台上传新的zip包
+```
+
+### 更新前端代码
+
+```bash
+# 重新构建
+npm run build
+
+# 将 dist/ 目录重新部署到飞书插件后台
 ```
 
 ## 安全建议
 
-1. 生产环境建议启用API Gateway的鉴权
-2. 限制CORS的允许来源
-3. 使用环境变量存储敏感信息
-4. 定期更新依赖包
-5. 监控异常访问
-
+1. 生产环境建议限制CORS的允许来源
+2. 使用环境变量存储敏感信息，不要将凭证提交到代码仓库
+3. 定期更新依赖包
+4. 监控异常访问
