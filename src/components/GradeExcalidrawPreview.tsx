@@ -1,172 +1,129 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import { bitable } from '@lark-base-open/js-sdk';
-import { exportExcalidrawToAttachment } from '../utils/excalidrawExport';
-import { loadAttachmentFieldsWithPriority } from '../utils/attachmentFields';
 import { loadGradeData as loadGradeDataFromField } from '../utils/gradeField';
-import { initializeExcalidrawLibrary } from '../utils/excalidrawLibrary';
-import { getRecordTitle } from '../utils/recordTitle';
-import { showToast } from '../utils/toast';
 import { ConfirmDialog } from './ConfirmDialog';
-import { IMAGE_CONFIG, TEXT_CONFIG, COLORS, EXPORT_FILE_PREFIX, TIMEOUT, GRADE_PREVIEW_CONFIG, IMAGE_EXTENSIONS } from '../constants';
-import type { ExcalidrawImperativeAPI, ExcalidrawElement, BinaryFiles, BinaryFileData } from '../types/excalidraw';
+import { useExcalidrawEditor } from '../hooks/useExcalidrawEditor';
+import { blobToDataURL, getImageSize, guessMimeFromUrl, calculateDisplaySize } from '../utils/imageLoader';
+import { addMarkingElements } from '../utils/markingElements';
+import { IMAGE_CONFIG, COLORS, EXPORT_FILE_PREFIX, GRADE_PREVIEW_CONFIG, IMAGE_EXTENSIONS } from '../constants';
+import type { ExcalidrawImperativeAPI, BinaryFileData } from '../types/excalidraw';
 import './GradeExcalidrawPreview.scss';
-
-interface AnswerStep {
-  step_id: number;
-  student_answer: string;
-  analysis: string;
-  is_correct: boolean;
-  answer_location: [number, number, number, number]; // [x1, y1, x2, y2]
-  models_consistent: boolean;
-  qwen_result: {
-    student_answer: string;
-    analysis: string;
-    is_correct: boolean;
-  };
-
-}
-
-interface QuestionInfo {
-  question_number: string;
-  question_type:
-    | '选择题'
-    | '判断题'
-    | '填空题'
-    | '解答题'
-    | '应用题'
-    | '作文题'
-    | '连线题'
-    | '作图题'
-    | '其他';
-  question_text: string;
-  answer_steps: AnswerStep[];
-}
 
 interface GradeData {
   image_url: string;
   markup_status: string;
-  questions_info: QuestionInfo[];
+  questions_info: any[];
 }
 
 interface GradeExcalidrawPreviewProps {
   onBack: () => void;
-  // 独立模式：直接传入批改数据，不依赖bitable
   initialGradeData?: GradeData[];
   initialRecordTitle?: string;
-  // 是否为独立模式（不显示导出功能）
   isStandalone?: boolean;
 }
 
-export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({ 
-  onBack, 
+/** 判断 URL 是否指向图片资源 */
+const isImageUrl = (url: string): boolean => {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    if (IMAGE_EXTENSIONS.test(pathname)) return true;
+  } catch {
+    if (IMAGE_EXTENSIONS.test(url.toLowerCase())) return true;
+  }
+  return false;
+};
+
+/** 带重试的图片加载，校验 Content-Type */
+const loadImageWithRetry = async (url: string, retries = 3): Promise<Blob> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-cache',
+        headers: { Accept: 'image/*' },
+      });
+      if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+
+      const contentType = resp.headers.get('content-type') || '';
+      const disposition = (resp.headers.get('content-disposition') || '').toLowerCase();
+      const isImage =
+        contentType.startsWith('image/') ||
+        contentType === 'application/octet-stream' ||
+        contentType === 'binary/octet-stream' ||
+        contentType.includes('octet-stream') ||
+        contentType === '';
+
+      if (!isImage) {
+        throw new Error(
+          `不支持预览的响应头: Content-Type=${contentType || '无'}, Content-Disposition=${disposition || '无'}`
+        );
+      }
+
+      const blob = await resp.blob();
+      if (blob.size === 0) throw new Error('空的图片数据');
+      return blob;
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise((r) => setTimeout(r, Math.pow(2, i) * 1000));
+    }
+  }
+  throw new Error('所有重试均失败');
+};
+
+export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({
+  onBack,
   initialGradeData,
   initialRecordTitle,
-  isStandalone = false 
+  isStandalone = false,
 }) => {
-  const [excalidrawAPI, setExcalidrawAPI] = useState<ExcalidrawImperativeAPI | null>(null);
-  const [attachmentFields, setAttachmentFields] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedFieldId, setSelectedFieldId] = useState<string>('');
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [hasChanges, setHasChanges] = useState<boolean>(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
-  const [initialElementCount, setInitialElementCount] = useState<number>(0);
-  const [hasExported, setHasExported] = useState<boolean>(false);
+  const editor = useExcalidrawEditor({
+    fileNamePrefix: EXPORT_FILE_PREFIX.GRADE,
+    skipLoadFields: isStandalone,
+    onBack,
+    hasUnsavedContent: () => {
+      if (isStandalone) return false;
+      if (!editor.excalidrawAPI || editor.initialElementCount <= 0) return false;
+      const currentElements = editor.excalidrawAPI.getSceneElements();
+      return currentElements && currentElements.length > editor.initialElementCount && !editor.hasExported;
+    },
+  });
+
   const [gradeDataList, setGradeDataList] = useState<GradeData[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
-  const [recordTitle, setRecordTitle] = useState<string>('');
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const tooltipTimeoutRef = useRef<number | null>(null);
 
+  // 初始化数据
   useEffect(() => {
     if (isStandalone && initialGradeData) {
-      // 独立模式：直接使用传入的数据
-      const imageOnlyData = initialGradeData.filter((item: GradeData) => {
-        return item.image_url && isImageUrl(item.image_url);
-      });
+      const imageOnlyData = initialGradeData.filter((item) => item.image_url && isImageUrl(item.image_url));
       if (imageOnlyData.length > 0) {
         setGradeDataList(imageOnlyData);
         setCurrentImageIndex(0);
         setLoading(false);
         if (initialRecordTitle) {
-          setRecordTitle(initialRecordTitle);
+          editor.setRecordTitle(initialRecordTitle);
         }
       } else {
         setError('未找到有效的图片数据');
         setLoading(false);
       }
     } else {
-      // 原有模式：从bitable读取
       loadGradeData();
-      loadAttachmentFields();
-      loadRecordTitle();
     }
-    
-    // 清理定时器
+
     return () => {
       if (tooltipTimeoutRef.current) {
         clearTimeout(tooltipTimeoutRef.current);
       }
     };
   }, []);
-
-  const loadRecordTitle = async () => {
-    try {
-      const selection = await bitable.base.getSelection();
-      if (selection.recordId && selection.tableId) {
-        const title = await getRecordTitle(selection.tableId, selection.recordId);
-        setRecordTitle(title);
-      }
-    } catch (error) {
-      console.error('Error loading record title:', error);
-    }
-  };
-
-  const loadAttachmentFields = async () => {
-    if (isStandalone) {
-      // 独立模式不需要加载附件字段
-      return;
-    }
-    const sortedFields = await loadAttachmentFieldsWithPriority();
-    setAttachmentFields(sortedFields);
-    if (sortedFields.length > 0) {
-      setSelectedFieldId(sortedFields[0].id);
-    }
-  };
-
-  /**
-   * 判断URL是否是图片类型
-   */
-  const isImageUrl = (url: string): boolean => {
-    if (!url || typeof url !== 'string') return false;
-    
-    // 检查URL扩展名
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname.toLowerCase();
-      if (IMAGE_EXTENSIONS.test(pathname)) {
-        return true;
-      }
-    } catch (e) {
-      // 如果不是有效的URL，尝试直接匹配扩展名
-      if (IMAGE_EXTENSIONS.test(url.toLowerCase())) {
-        return true;
-      }
-    }
-    
-    // 检查URL中是否包含图片相关的查询参数或路径
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes('image') || lowerUrl.includes('img') || lowerUrl.includes('photo')) {
-      // 进一步检查是否有图片扩展名
-      if (IMAGE_EXTENSIONS.test(lowerUrl)) {
-        return true;
-      }
-    }
-    
-    return false;
-  };
 
   const loadGradeData = async () => {
     try {
@@ -178,27 +135,18 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({
         return;
       }
 
-      // 使用工具函数加载批改数据
       const valueStr = await loadGradeDataFromField(selection.tableId, selection.recordId);
-
-      // 解析JSON数据
       let parsedData: GradeData[];
       try {
         parsedData = JSON.parse(valueStr);
-        if (!Array.isArray(parsedData)) {
-          parsedData = [parsedData];
-        }
-      } catch (parseError) {
+        if (!Array.isArray(parsedData)) parsedData = [parsedData];
+      } catch {
         setError('数据格式错误，无法解析JSON');
         setLoading(false);
         return;
       }
 
-      // 过滤掉非图片类型的URL
-      const imageOnlyData = parsedData.filter((item: GradeData) => {
-        return item.image_url && isImageUrl(item.image_url);
-      });
-
+      const imageOnlyData = parsedData.filter((item) => item.image_url && isImageUrl(item.image_url));
       if (imageOnlyData.length === 0) {
         setError('未找到有效的图片数据');
         setGradeDataList([]);
@@ -217,694 +165,120 @@ export const GradeExcalidrawPreview: React.FC<GradeExcalidrawPreviewProps> = ({
     }
   };
 
+  // 加载当前图片和标记
   useEffect(() => {
-    if (excalidrawAPI && gradeDataList.length > 0) {
+    if (editor.excalidrawAPI && gradeDataList.length > 0) {
       loadCurrentImageAndMarkings();
     }
-  }, [excalidrawAPI, gradeDataList, currentImageIndex]);
-
-  useEffect(() => {
-    if (excalidrawAPI) {
-      initializeExcalidrawLibrary(excalidrawAPI);
-    }
-  }, [excalidrawAPI]);
-
-  // 根据 URL 后缀猜测 MIME
-  const guessMimeFromUrl = (url: string): string | undefined => {
-    const lower = url.split('?')[0].toLowerCase();
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.bmp')) return 'image/bmp';
-    return undefined;
-  };
-
-  // 带重试的图片加载，校验 Content-Type
-  const loadImageWithRetry = async (url: string, retries = 3): Promise<Blob> => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const resp = await fetch(url, {
-          method: 'GET',
-          mode: 'cors',
-          credentials: 'omit',
-          cache: 'no-cache',
-          headers: { Accept: 'image/*' },
-        });
-
-        if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
-
-        const contentType = resp.headers.get('content-type') || '';
-        const disposition = (resp.headers.get('content-disposition') || '').toLowerCase();
-        const isImage =
-          contentType.startsWith('image/') ||
-          contentType === 'application/octet-stream' ||
-          contentType === 'binary/octet-stream' ||
-          contentType.includes('octet-stream') ||
-          contentType === '';
-
-        if (!isImage) {
-          throw new Error(
-            `不支持预览的响应头: Content-Type=${contentType || '无'}, Content-Disposition=${disposition || '无'}`
-          );
-        }
-
-        const blob = await resp.blob();
-        if (blob.size === 0) throw new Error('空的图片数据');
-        return blob;
-      } catch (err) {
-        if (i === retries - 1) throw err;
-        await new Promise((r) => setTimeout(r, Math.pow(2, i) * 1000));
-      }
-    }
-    throw new Error('所有重试均失败');
-  };
-
-  const blobToDataURL = (blob: Blob) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('图片读取失败，请检查图片格式'));
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
-
-  const getImageSize = (dataURL: string) =>
-    new Promise<{ width: number; height: number }>((resolve, reject) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('图片格式无效或已损坏'));
-      img.onload = () => resolve({ width: img.width, height: img.height });
-      img.src = dataURL;
-    });
+  }, [editor.excalidrawAPI, gradeDataList, currentImageIndex]);
 
   const loadCurrentImageAndMarkings = async () => {
     const currentData = gradeDataList[currentImageIndex];
-    if (!currentData || !currentData.image_url) return;
+    if (!currentData || !currentData.image_url || !editor.excalidrawAPI) return;
 
     try {
       const imageBlob = await loadImageWithRetry(currentData.image_url);
       const dataURL = await blobToDataURL(imageBlob);
       const { width: imageWidth, height: imageHeight } = await getImageSize(dataURL);
-
-      const maxWidth = IMAGE_CONFIG.MAX_DISPLAY_WIDTH;
-      const maxHeight = IMAGE_CONFIG.MAX_DISPLAY_HEIGHT;
-      let displayWidth = imageWidth;
-      let displayHeight = imageHeight;
-
-      if (imageWidth > maxWidth || imageHeight > maxHeight) {
-        const widthRatio = maxWidth / imageWidth;
-        const heightRatio = maxHeight / imageHeight;
-        const scale = Math.min(widthRatio, heightRatio);
-        displayWidth = imageWidth * scale;
-        displayHeight = imageHeight * scale;
-      }
+      const { width: displayWidth, height: displayHeight } = calculateDisplaySize(
+        imageWidth, imageHeight,
+        IMAGE_CONFIG.MAX_DISPLAY_WIDTH, IMAGE_CONFIG.MAX_DISPLAY_HEIGHT
+      );
 
       const fileId = `image_${Date.now()}`;
+      const { convertToExcalidrawElements, MIME_TYPES } = await import('@excalidraw/excalidraw');
 
-      import('@excalidraw/excalidraw')
-        .then((module: any) => {
-          const { convertToExcalidrawElements, MIME_TYPES } = module;
-          const guessedMime = guessMimeFromUrl(currentData.image_url);
-          const resolvedMime =
-            imageBlob.type && imageBlob.type !== 'application/octet-stream'
-              ? imageBlob.type
-              : guessedMime || MIME_TYPES.jpg;
+      const guessedMime = guessMimeFromUrl(currentData.image_url);
+      const resolvedMime =
+        imageBlob.type && imageBlob.type !== 'application/octet-stream'
+          ? imageBlob.type
+          : guessedMime || MIME_TYPES.jpg;
 
-          const imageFile: BinaryFileData = {
-            id: fileId as any,
-            dataURL: dataURL as any,
-            mimeType: resolvedMime,
-            created: Date.now(),
-            lastRetrieved: Date.now(),
-          };
+      const imageFile: BinaryFileData = {
+        id: fileId as any,
+        dataURL: dataURL as any,
+        mimeType: resolvedMime,
+        created: Date.now(),
+        lastRetrieved: Date.now(),
+      };
 
-          excalidrawAPI.addFiles([imageFile]);
+      editor.excalidrawAPI.addFiles([imageFile]);
 
-          const imageElement = convertToExcalidrawElements([
-            {
-              type: 'image',
-              x: 0,
-              y: 0,
-              width: displayWidth,
-              height: displayHeight,
-              fileId: fileId,
-              status: 'saved',
-              scale: [1, 1],
-              locked: true, // 锁定图片，不允许拖动、缩放等操作
-            },
-          ] as any);
+      const imageElement = convertToExcalidrawElements([
+        {
+          type: 'image',
+          x: 0, y: 0,
+          width: displayWidth, height: displayHeight,
+          fileId, status: 'saved', scale: [1, 1],
+          locked: true,
+        },
+      ] as any);
 
-          const markingElementsRaw = addMarkingElements(
-            currentData.questions_info,
-            displayWidth / imageWidth,
-            displayHeight / imageHeight,
-            displayWidth
-          );
-          const markingElements = convertToExcalidrawElements(markingElementsRaw as any);
+      const markingElementsRaw = addMarkingElements(
+        currentData.questions_info,
+        displayWidth / imageWidth,
+        displayHeight / imageHeight,
+        displayWidth
+      );
+      const markingElements = convertToExcalidrawElements(markingElementsRaw as any);
 
-          const allElements = [...imageElement, ...markingElements].map((el: any) => {
-            // 图片元素保持锁定状态，标记元素允许编辑
-            const isImageElement = el.type === 'image';
-            const fixedEl = {
-              ...el,
-              locked: isImageElement ? true : false, // 图片锁定，标记元素不锁定
-              points:
-                el.points || (el.type === 'arrow' ? [[0, 0], [el.width || 0, el.height || 0]] : []),
-              strokeStyle: el.strokeStyle || 'solid',
-              fillStyle: el.fillStyle || 'solid',
-            };
+      const allElements = [...imageElement, ...markingElements].map((el: any) => {
+        const isImageElement = el.type === 'image';
+        const fixedEl = {
+          ...el,
+          locked: isImageElement,
+          points: el.points || (el.type === 'arrow' ? [[0, 0], [el.width || 0, el.height || 0]] : []),
+          strokeStyle: el.strokeStyle || 'solid',
+          fillStyle: el.fillStyle || 'solid',
+        };
+        if (fixedEl.type === 'arrow' && Array.isArray(fixedEl.points)) {
+          fixedEl.points = fixedEl.points.map((p: any) => (Array.isArray(p) ? p : [0, 0]));
+        }
+        return fixedEl;
+      });
 
-            if (fixedEl.type === 'arrow' && Array.isArray(fixedEl.points)) {
-              fixedEl.points = fixedEl.points.map((p: any) => (Array.isArray(p) ? p : [0, 0]));
-            }
+      editor.excalidrawAPI.updateScene({ elements: allElements });
+      editor.setInitialElementCount(allElements.length);
 
-            return fixedEl;
-          });
-
-          excalidrawAPI.updateScene({
-            elements: allElements,
-          });
-
-          setInitialElementCount(allElements.length);
-          setHasChanges(false);
-
-          setTimeout(() => {
-            excalidrawAPI.scrollToContent(imageElement[0], {
-              fitToViewport: true,
-            });
-          }, 100);
-        })
-        .catch((err) => {
-          console.error('Error loading Excalidraw module:', err);
-          setError('加载画布模块失败');
-        });
-    } catch (error: any) {
-      console.error('加载图片失败:', error);
-      const errorMessage = error?.message || '加载图片时出错';
-      if (errorMessage.includes('CORS')) {
+      setTimeout(() => {
+        editor.excalidrawAPI!.scrollToContent(imageElement[0], { fitToViewport: true });
+      }, 100);
+    } catch (err: any) {
+      console.error('加载图片失败:', err);
+      const msg = err?.message || '加载图片时出错';
+      if (msg.includes('CORS')) {
         setError('图片加载失败：跨域访问被阻止，请联系管理员');
-      } else if (errorMessage.includes('HTTP error')) {
-        setError(`图片加载失败：服务器返回错误 (${errorMessage})`);
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      } else if (msg.includes('HTTP error')) {
+        setError(`图片加载失败：服务器返回错误 (${msg})`);
+      } else if (msg.includes('network') || msg.includes('fetch')) {
         setError('图片加载失败：网络连接问题，请检查网络后重试');
       } else {
-        setError(`图片加载失败：${errorMessage}`);
+        setError(`图片加载失败：${msg}`);
       }
     }
-  };
-
-  /**
-   * 根据固定宽度自动换行文本
-   * @param text 原始文本
-   * @param maxWidth 最大宽度（像素）
-   * @param fontSize 字体大小
-   * @returns 换行后的文本行数组
-   */
-  const wrapTextByWidth = (text: string, maxWidth: number, fontSize: number): string[] => {
-    const lines: string[] = [];
-    const chineseCharWidth = fontSize; // 中文字符宽度约等于字体大小
-    const uppercaseCharWidth = fontSize * 0.7; // 大写字母70%汉字宽度
-    const lowercaseCharWidth = fontSize * 0.5; // 小写字母50%汉字宽度
-    const numberCharWidth = fontSize * 0.6; // 数字60%汉字宽度
-    const specialCharWidth = fontSize * 0.5; // 特殊字符50%汉字宽度
-    const spaceWidth = fontSize * 0.4; // 空格宽度
-    const punctuationPattern = /[，。、“"''：《》＜＞<>（）()、；;：:，,.!?！？”“]/;
-    const operatorPattern = /[+\-*/=^%]/;
-
-    // 按中文单字、英文单词、空白、单个符号切分，保留所有字符
-    const tokens = text.match(/([\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]|[A-Za-z0-9]+|\s+|.)/g) || [];
-
-    let currentLine = '';
-    let currentLineWidth = 0;
-
-    const getCharWidth = (char: string): number => {
-      if (/\s/.test(char)) return spaceWidth; // 空白字符
-      if (/[A-Z]/.test(char)) return uppercaseCharWidth; // 大写字母
-      if (/[a-z]/.test(char)) return lowercaseCharWidth; // 小写字母
-      if (/[0-9]/.test(char)) return numberCharWidth; // 数字
-      if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(char)) return chineseCharWidth; // 中文字符
-      return specialCharWidth; // 特殊字符
-    };
-
-    const getTokenWidth = (token: string) => {
-      let width = 0;
-      for (let i = 0; i < token.length; i++) {
-        width += getCharWidth(token[i]);
-      }
-      return width;
-    };
-
-    tokens.forEach((token) => {
-      const isPunct = punctuationPattern.test(token) || operatorPattern.test(token);
-      const isSpace = /^\s+$/.test(token);
-      const tokenWidth = getTokenWidth(token);
-
-      // 不让行首出现空白
-      if (isSpace && currentLineWidth === 0) {
-        return;
-      }
-
-      // 如果行首遇到标点/运算符且已有上一行，则附加到上一行末尾
-      if (isPunct && currentLineWidth === 0 && lines.length > 0) {
-        lines[lines.length - 1] += token;
-        return;
-      }
-
-      const wouldExceed = currentLineWidth + tokenWidth > maxWidth - 16; // 减去16像素，留出左右边距
-
-      if (wouldExceed && currentLineWidth > 0) {
-        lines.push(currentLine);
-        currentLine = '';
-        currentLineWidth = 0;
-      }
-
-      currentLine += token;
-      currentLineWidth += tokenWidth;
-    });
-
-    if (currentLine.length > 0) {
-      lines.push(currentLine);
-    }
-
-    return lines;
-  };
-
-  const addMarkingElements = (questions: QuestionInfo[], scaleX: number, scaleY: number, displayWidth: number) => {
-    const elements: any[] = [];
-    
-    // 基于图片宽度计算文本配置（使用比例）
-    const questionFontSize = displayWidth * TEXT_CONFIG.QUESTION_FONT_SIZE_RATIO;
-    const analysisFontSize = displayWidth * TEXT_CONFIG.ANALYSIS_FONT_SIZE_RATIO;
-    const analysisMaxWidth = displayWidth * TEXT_CONFIG.ANALYSIS_MAX_WIDTH_RATIO;
-    const questionSpacing = displayWidth * TEXT_CONFIG.QUESTION_SPACING_RATIO;
-    const analysisSpacing = displayWidth * TEXT_CONFIG.ANALYSIS_SPACING_RATIO;
-    const rightMargin = displayWidth * 0.025; // 图片右侧边距，约为图片宽度的2.5%
-    
-    let subjectiveY = 20; // 用于定位右侧批注信息的y轴位置
-    const addedQuestionTitles = new Set<string>(); // 记录已添加题号文本的题目，避免重复
-
-    questions.forEach((question, qIndex) => {
-      let hasAnalysisText = false; // 标记本题是否添加过批改分析文本
-      // 针对所有题目的正确错误标记，以及错误题目的文字批注
-      if (question.question_type ) {
-        question.answer_steps.forEach((step) => {
-          const [x1, y1, x2, y2] = step.answer_location;
-          const scaledX1 = x1 * scaleX;
-          const scaledY1 = y1 * scaleY;
-          const scaledX2 = x2 * scaleX;
-          const scaledY2 = y2 * scaleY;
-          const width = scaledX2 - scaledX1;
-          const height = scaledY2 - scaledY1;
-
-          // 针对正确题目添加绿色对勾标记 [两个模型都判对才展示对钩]
-          if (step.is_correct && step.models_consistent) {
-            const centerX = scaledX1 + width / 2;
-            const centerY = scaledY1 + height ;
-            const checkSize = 0.75 * Math.min(0.12 * displayWidth, Math.max(0.2 * (width+height),0.6 * Math.min(width,height),0.04 * displayWidth));
-            /* 动态对钩尺寸：width<30 放大到 2x，width>400 缩到 0.5x
-            const baseSize = (width + height) / 2;
-            const t = Math.min(Math.max((width - 25) / (400 - 25), 0), 1); // 0~1 线性
-            const scaleFactor = 0.7 - t * (0.7 - 0.2); // 2 -> 0.5
-            const checkSize = baseSize * scaleFactor;
-            */
-            
-            // 红色对勾
-            elements.push({
-              type: 'line',
-              x: centerX - checkSize ,
-              y: centerY - checkSize ,
-              points: [
-                [0, 0],
-                [checkSize * 0.20,  checkSize * 0.30],
-                [checkSize * 0.45,  checkSize * 0.60],
-                [checkSize * 0.65,  checkSize * 0.80],
-                [checkSize * 0.90,  checkSize * 0.95],
-                [checkSize * 1.10,  checkSize * 0.85],  // 轻微回落
-                [checkSize * 1.30,  checkSize * 0.70],
-                [checkSize * 1.60,  checkSize * 0.45],
-                [checkSize * 1.95,  checkSize * 0.05],
-                [checkSize * 2.40, -checkSize * 0.70],
-                [checkSize * 3.20, -checkSize * 2.40] 
-              ],
-              strokeColor: 'red',//'#52c41a', //'green',
-              strokeWidth: 4,
-              roughness: 1.4, // 略微抖动，模拟手写
-            });
-        
-          } else if(step.is_correct && !step.models_consistent){
-            
-              // 豆包判对，qwen判错，用豆包结果
-              const baseScale = 2.0;              // 原先最大放大倍数
-              const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
-              const scaleFactor =
-                1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
-              // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
-
-              elements.push({
-                type: 'ellipse',
-                x: scaledX1 - width  * scaleFactor * 0.2,
-                y: scaledY1 - height  * scaleFactor * 0.2,
-                width: width * scaleFactor,
-                height: height * scaleFactor,
-                strokeColor: 'red',
-                backgroundColor: 'transparent',
-                strokeWidth: 3,
-                roughness: 1.4,
-              });
-
-          
-
-            // 添加错误的题号文本
-            if (!addedQuestionTitles.has(question.question_number)) {
-              elements.push({
-                  type: 'text',
-                  x: displayWidth + rightMargin,  // 放置在图片右侧
-                  y: subjectiveY,
-                  width: analysisMaxWidth,
-                  height: questionFontSize * 1.5,
-                  text: `题号: ${question.question_number} `,
-                  fontSize: questionFontSize,
-                  fontFamily: 0,
-                  textAlign: 'left',
-                  verticalAlign: 'top',
-                  strokeColor: '#333',
-                  
-                  fillStyle: 'solid'
-                });
-                subjectiveY += questionSpacing;
-                addedQuestionTitles.add(question.question_number);
-            }
-
-
-            // 添加错误客观题的批改分析文本（按固定宽度自动换行）
-            // const analysisText = '(' + step.step_id + ') '  + step.analysis;
-            const hasMultipleSteps = question.answer_steps.length > 1;
-            const analysis = step.qwen_result?.analysis || step.analysis || '';
-            const analysisText = hasMultipleSteps
-            ? `(${step.step_id}) ${analysis}`
-            : analysis;
-
-            const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
-            const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
-            
-            // 添加包含分析文本的矩形框
-            elements.push({
-              id: `analysis_box_${qIndex}_${step.step_id}_red`,
-              type: 'rectangle',
-              x: displayWidth + rightMargin,
-              y: subjectiveY + analysisSpacing,
-              width: analysisMaxWidth,
-              height: textHeight,
-strokeColor: 'transparent',
-              backgroundColor: 'transparent',
-              label: {
-                text: analysisText,
-                strokeColor: "red",
-                fontSize: analysisFontSize,
-                textAlign: 'left',
-                verticalAlign: 'top',
-              },
-            });
-
-            subjectiveY += textHeight + analysisSpacing;
-            hasAnalysisText = true;
-
-
-          }
-            else if(!step.is_correct && !step.models_consistent){
-               // 豆包判错，qwen判对，用豆包结果
-               const baseScale = 2.0;              // 原先最大放大倍数
-               const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
-               const scaleFactor =
-                 1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
-               // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
-               
-               elements.push({
-                 type: 'ellipse',
-                 x: scaledX1 - width  * scaleFactor * 0.2,
-                 y: scaledY1 - height  * scaleFactor * 0.2,
-                 width: width * scaleFactor,
-                 height: height * scaleFactor,
-                 strokeColor: 'red',
-                 backgroundColor: 'transparent',
-                 strokeWidth: 3,
-                 roughness: 1.4,
-               });
-   
-               // 添加错误的题号文本
-               if (!addedQuestionTitles.has(question.question_number)) {
-                 elements.push({
-                     type: 'text',
-                     x: displayWidth + rightMargin,  // 放置在图片右侧
-                     y: subjectiveY,
-                     width: analysisMaxWidth,
-                     height: questionFontSize * 1.5,
-                     text: `题号: ${question.question_number} `,
-                     fontSize: questionFontSize,
-                     fontFamily: 0,
-                     textAlign: 'left',
-                     verticalAlign: 'top',
-                     strokeColor: '#333',
-                     
-                     fillStyle: 'solid'
-                   });
-                   subjectiveY += questionSpacing;
-                   addedQuestionTitles.add(question.question_number);
-               }
-   
-   
-               // 添加错误客观题的批改分析文本（按固定宽度自动换行）
-               // const analysisText = '(' + step.step_id + ') '  + step.analysis;
-               const hasMultipleSteps = question.answer_steps.length > 1;
-               const analysis = step.analysis || '';
-               const analysisText = hasMultipleSteps
-               ? `(${step.step_id}) ${analysis}`
-               : analysis;
-   
-               const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-                const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
-                const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
-                
-                // 添加包含分析文本的矩形框
-                elements.push({
-                  id: `analysis_box_${qIndex}_${step.step_id}_red`,
-                  type: 'rectangle',
-                  x: displayWidth + rightMargin,
-                  y: subjectiveY + analysisSpacing,
-                  width: analysisMaxWidth,
-                  height: textHeight,
-                  strokeColor: 'transparent',
-                  backgroundColor: 'transparent',
-                  label: {
-                    text: analysisText,
-                    strokeColor: "red",
-                    fontSize: analysisFontSize,
-                    textAlign: 'left',
-                    verticalAlign: 'top',
-                  },
-                });
-   
-               subjectiveY += textHeight + analysisSpacing;
-               hasAnalysisText = true;
-             
-            }
-
-            else {
-            // 针对错误题目添加红色圆圈
-
-            const baseScale = 2.0;              // 原先最大放大倍数
-            const maxWidthForScale = 0.7 * displayWidth;       // 低于此宽度才逐步放大
-            const scaleFactor =
-              1 + (baseScale - 1) * Math.max(0, (maxWidthForScale - width) / maxWidthForScale);
-            // 宽度 >= 400 时系数收敛到 1，宽度越小系数越接近 1.5（可按需调整 400/1.5）
-            
-            elements.push({
-              type: 'ellipse',
-              x: scaledX1 - width  * scaleFactor * 0.2,
-              y: scaledY1 - height  * scaleFactor * 0.2,
-              width: width * scaleFactor,
-              height: height * scaleFactor,
-              strokeColor: 'red',
-              backgroundColor: 'transparent',
-              strokeWidth: 3,
-              roughness: 1.4,
-            });
-
-            // 添加错误的题号文本
-            if (!addedQuestionTitles.has(question.question_number)) {
-              elements.push({
-                  type: 'text',
-                  x: displayWidth + rightMargin,  // 放置在图片右侧
-                  y: subjectiveY,
-                  width: analysisMaxWidth,
-                  height: questionFontSize * 1.5,
-                  text: `题号: ${question.question_number} `,
-                  fontSize: questionFontSize,
-                  fontFamily: 0,
-                  textAlign: 'left',
-                  verticalAlign: 'top',
-                  strokeColor: '#333',
-                  
-                  fillStyle: 'solid'
-                });
-                subjectiveY += questionSpacing;
-                addedQuestionTitles.add(question.question_number);
-            }
-
-
-            // 添加批改分析文本
-
-             // 是否有多步，多步骤前面加上步骤序号
-            const hasMultipleSteps = question.answer_steps.length > 1;
-            const analysis = step.analysis || '';
-            const analysisText = hasMultipleSteps
-            ? `(${step.step_id}) ${analysis}`
-            : analysis;
-
-            const newlineCount = (analysisText.match(/\n/g) || []).length; // 统计\n数量
-            const lines = wrapTextByWidth(analysisText, analysisMaxWidth, analysisFontSize); // 按固定宽度自动换行，返回行数
-            const textHeight = (lines.length + newlineCount) * analysisFontSize * TEXT_CONFIG.LINE_HEIGHT_RATIO;  // 矩形框高度 = (行数 + 换行符) * 字体大小 * 行高系数
-            
-            // 添加包含分析文本的矩形框
-            elements.push({
-              id: `analysis_box_${qIndex}_${step.step_id}_red`,
-              type: 'rectangle',
-              x: displayWidth + rightMargin,
-              y: subjectiveY + analysisSpacing,
-              width: analysisMaxWidth,
-              height: textHeight,
-strokeColor: 'transparent',
-              backgroundColor: 'transparent',
-              label: {
-                text: analysisText,
-                strokeColor: "red",
-                fontSize: analysisFontSize,
-                textAlign: 'left',
-                verticalAlign: 'top',
-              },
-            });
-            
-            /*
-            elements.push({
-                type: 'text',
-                // containerId: `analysis_box_${qIndex}_${step.step_id}_red`,
-                x: displayWidth + 20, //scaledX1,
-                y: subjectiveY + 20, //scaledY1 - textHeight - 5,
-                width: maxWidth,
-                height: textHeight,
-                text: textContent,
-                fontSize: fontSizeNumber,
-                fontFamily: 0,
-                textAlign: 'left',
-                autoResize: true,
-                verticalAlign: 'top',
-                strokeColor: 'red',
-                backgroundColor: 'rgba(255,255,255,0.9)',
-                fillStyle: 'solid'
-              });
-              */
-
-            // 增加间距，包含矩形框高度再加12像素
-            
-            subjectiveY += textHeight + 24;
-            hasAnalysisText = true;
-
-            
-          }
-
-          
-        });
-        // 
-      } 
-      
-      if (hasAnalysisText) {
-        subjectiveY += analysisSpacing;  // 仅当本题有分析文本时增加题间间距
-      }
-    });
-    
-    return elements;
   };
 
   const handlePrevious = () => {
     if (currentImageIndex > 0) {
       setCurrentImageIndex(currentImageIndex - 1);
-      // 切换图片时重置状态
-      setHasChanges(false);
-      setHasExported(false);
-      setInitialElementCount(0);
+      editor.setHasExported(false);
+      editor.setInitialElementCount(0);
     }
   };
 
   const handleNext = () => {
     if (currentImageIndex < gradeDataList.length - 1) {
       setCurrentImageIndex(currentImageIndex + 1);
-      // 切换图片时重置状态
-      setHasChanges(false);
-      setHasExported(false);
-      setInitialElementCount(0);
+      editor.setHasExported(false);
+      editor.setInitialElementCount(0);
     }
   };
 
-  const handleExport = async () => {
-    if (!excalidrawAPI || !selectedFieldId) return;
-
-    setIsExporting(true);
-    
-    const result = await exportExcalidrawToAttachment({
-      excalidrawAPI,
-      selectedFieldId,
-      fileNamePrefix: EXPORT_FILE_PREFIX.GRADE,
-      timeout: TIMEOUT.EXPORT
-    });
-
-    setIsExporting(false);
-    
-    // 使用 toast 提示，根据成功/失败状态选择不同的类型
-    await showToast(result.message, result.success ? 'success' : 'error');
-
-    if (result.success) {
-      setHasChanges(false);
-      setHasExported(true); // 标记已导出
-    }
-  };
-
-  const handleBack = () => {
-    // 独立模式下，不需要导出确认
-    if (isStandalone) {
-      onBack();
-      return;
-    }
-    
-    // 只有当有新增元素操作且未导出时，才需要二次确认
-    if (excalidrawAPI && initialElementCount > 0) {
-      const currentElements = excalidrawAPI.getSceneElements();
-      const hasNewElements = currentElements && currentElements.length > initialElementCount;
-      
-      if (hasNewElements && !hasExported) {
-        setShowConfirmDialog(true);
-        return;
-      }
-    }
-    
-    // 其他情况直接返回
-    onBack();
-  };
-
-  const handleConfirmBack = () => {
-    setShowConfirmDialog(false);
-    onBack();
-  };
-
-  const handleChange = (
-    elements: readonly ExcalidrawElement[], 
-    appState: any, 
-    files: BinaryFiles
-  ) => {
-    // 监听画板内容变化
-    // 如果元素数量大于初始数量（图片+标记），说明用户添加了新内容
-    if (initialElementCount > 0 && elements && elements.length > initialElementCount) {
-      setHasChanges(true);
-    }
+  const handleClearMarks = () => {
+    if (!editor.excalidrawAPI) return;
+    const elements = editor.excalidrawAPI.getSceneElements();
+    const imageOnly = elements.filter((el: any) => el.type === 'image');
+    editor.excalidrawAPI.updateScene({ elements: imageOnly });
   };
 
   if (loading) {
@@ -916,9 +290,7 @@ strokeColor: 'transparent',
       <div className="grade-excalidraw-preview">
         <div className="status-message error">
           <div className="status-text">{error}</div>
-          <button className="status-action-btn" onClick={onBack}>
-            ← 返回
-          </button>
+          <button className="status-action-btn" onClick={onBack}>← 返回</button>
         </div>
       </div>
     );
@@ -929,9 +301,7 @@ strokeColor: 'transparent',
       <div className="grade-excalidraw-preview">
         <div className="status-message empty">
           <div className="status-text">没有批改数据</div>
-          <button className="status-action-btn" onClick={onBack}>
-            ← 返回
-          </button>
+          <button className="status-action-btn" onClick={onBack}>← 返回</button>
         </div>
       </div>
     );
@@ -941,13 +311,13 @@ strokeColor: 'transparent',
     <div className="grade-excalidraw-preview">
       <div className="preview-header">
         <div className="header-left">
-          <button className="btn btn-sm btn-outline-secondary" onClick={handleBack}>
+          <button className="btn btn-sm btn-outline-secondary" onClick={editor.handleBack}>
             ← 返回
           </button>
-          {recordTitle && (
+          {editor.recordTitle && (
             <div className="record-title-wrapper ms-2">
-              <span className="record-title">{recordTitle}</span>
-              <div 
+              <span className="record-title">{editor.recordTitle}</span>
+              <div
                 className="tooltip-wrapper"
                 onMouseEnter={() => {
                   if (tooltipTimeoutRef.current) {
@@ -960,16 +330,16 @@ strokeColor: 'transparent',
                   tooltipTimeoutRef.current = setTimeout(() => {
                     setShowTooltip(false);
                     tooltipTimeoutRef.current = null;
-                  }, 500); // 延迟 0.5 秒隐藏
+                  }, 500);
                 }}
               >
                 <span className="help-icon">?</span>
                 <div className={`tooltip-content ${showTooltip ? 'show' : ''}`}>
                   {GRADE_PREVIEW_CONFIG.TOOLTIP_MESSAGE}
                   {GRADE_PREVIEW_CONFIG.TOOLTIP_LINK_URL && (
-                    <a 
-                      href={GRADE_PREVIEW_CONFIG.TOOLTIP_LINK_URL} 
-                      target="_blank" 
+                    <a
+                      href={GRADE_PREVIEW_CONFIG.TOOLTIP_LINK_URL}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="tooltip-link"
                     >
@@ -982,9 +352,18 @@ strokeColor: 'transparent',
           )}
         </div>
         <div className="header-actions">
+          <button
+            className="clear-marks-btn me-3"
+            onClick={handleClearMarks}
+            title="一键清除标记"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 3H11V2.5C11 1.67 10.33 1 9.5 1H6.5C5.67 1 5 1.67 5 2.5V3H2.5C2.22 3 2 3.22 2 3.5S2.22 4 2.5 4H3V13.5C3 14.33 3.67 15 4.5 15H11.5C12.33 15 13 14.33 13 13.5V4H13.5C13.78 4 14 3.78 14 3.5S13.78 3 13.5 3ZM6 2.5C6 2.22 6.22 2 6.5 2H9.5C9.78 2 10 2.22 10 2.5V3H6V2.5ZM12 13.5C12 13.78 11.78 14 11.5 14H4.5C4.22 14 4 13.78 4 13.5V4H12V13.5ZM6.5 6.5V11.5C6.5 11.78 6.28 12 6 12S5.5 11.78 5.5 11.5V6.5C5.5 6.22 5.72 6 6 6S6.5 6.22 6.5 6.5ZM8.5 6.5V11.5C8.5 11.78 8.28 12 8 12S7.5 11.78 7.5 11.5V6.5C7.5 6.22 7.72 6 8 6S8.5 6.22 8.5 6.5ZM10.5 6.5V11.5C10.5 11.78 10.28 12 10 12S9.5 11.78 9.5 11.5V6.5C9.5 6.22 9.72 6 10 6S10.5 6.22 10.5 6.5Z" fill="currentColor"/>
+            </svg>
+          </button>
           {gradeDataList.length > 1 && (
             <div className="attachment-nav-inline me-3">
-              <button 
+              <button
                 className="nav-btn prev"
                 onClick={handlePrevious}
                 disabled={currentImageIndex === 0}
@@ -995,7 +374,7 @@ strokeColor: 'transparent',
               <span className="nav-indicator">
                 {currentImageIndex + 1} / {gradeDataList.length}
               </span>
-              <button 
+              <button
                 className="nav-btn next"
                 onClick={handleNext}
                 disabled={currentImageIndex === gradeDataList.length - 1}
@@ -1007,22 +386,22 @@ strokeColor: 'transparent',
           )}
           {!isStandalone && (
             <>
-              <select 
+              <select
                 className="form-select form-select-sm me-2"
-                value={selectedFieldId}
-                onChange={(e) => setSelectedFieldId(e.target.value)}
+                value={editor.selectedFieldId}
+                onChange={(e) => editor.setSelectedFieldId(e.target.value)}
                 style={{ width: 'auto', minWidth: '150px' }}
               >
-                {attachmentFields.map(field => (
+                {editor.attachmentFields.map(field => (
                   <option key={field.id} value={field.id}>{field.name}</option>
                 ))}
               </select>
-              <button 
+              <button
                 className="btn btn-sm btn-primary"
-                onClick={handleExport}
-                disabled={isExporting || !selectedFieldId}
+                onClick={editor.handleExport}
+                disabled={editor.isExporting || !editor.selectedFieldId}
               >
-                {isExporting ? '导出中...' : '导出'}
+                {editor.isExporting ? '导出中...' : '导出'}
               </button>
             </>
           )}
@@ -1033,23 +412,19 @@ strokeColor: 'transparent',
         <Excalidraw
           initialData={{
             appState: {
-              currentItemStrokeColor: COLORS.ERROR, // 默认画笔/椭圆描边颜色：红色
+              currentItemStrokeColor: COLORS.ERROR,
             },
           }}
-          excalidrawAPI={(api: ExcalidrawImperativeAPI) => {
-            if (api) {
-              setExcalidrawAPI(api);
-            }
-          }}
-          onChange={handleChange}
+          excalidrawAPI={(api: ExcalidrawImperativeAPI) => editor.onExcalidrawAPI(api)}
+          onChange={editor.handleChange}
         />
       </div>
 
       <ConfirmDialog
-        show={showConfirmDialog}
+        show={editor.showConfirmDialog}
         message="检测到未导出的编辑内容，是否确定放弃并返回？"
-        onConfirm={handleConfirmBack}
-        onCancel={() => setShowConfirmDialog(false)}
+        onConfirm={editor.handleConfirmBack}
+        onCancel={() => editor.setShowConfirmDialog(false)}
       />
     </div>
   );

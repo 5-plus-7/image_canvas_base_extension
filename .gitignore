@@ -24,3 +24,9 @@ pnpm-lock.yaml
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# deployment packages
+*.zip
+
+# build output
+/dist

@@ -5,6 +5,8 @@ import { isImageAttachment, isPdfAttachment } from '../utils/fileType';
 import { checkGradeField } from '../utils/gradeField';
 import { showToast } from '../utils/toast';
 import { IMAGE_CONFIG, PDF_CONFIG, GRADE_FIELD_NAME, TIMEOUT } from '../constants';
+import { compressImage } from '../utils/imageCompression';
+import { EmptyStateIllustration } from './EmptyStateIllustration';
 import './AttachmentPreview.scss';
 
 // 设置PDF.js worker - 使用本地worker文件
@@ -91,40 +93,42 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
         const fieldMeta = await field.getMeta();
         setFieldName(fieldMeta.name);
 
-        // 获取索引列名（主字段名）
+        // 获取字段元数据列表（仅调用一次）
+        let fieldMetaList: any[] = [];
         try {
-          const fieldMetaList = await table.getFieldMetaList();
-          const primaryField = fieldMetaList.find(f => f.isPrimary);
-          if (primaryField) {
-            setPrimaryFieldName(primaryField.name);
-            // 获取索引列的值
+          fieldMetaList = await table.getFieldMetaList();
+        } catch (err) {
+          console.error('Error getting field meta list:', err);
+        }
+
+        // 获取索引列名（主字段名）
+        const primaryField = fieldMetaList.find(f => f.isPrimary);
+        if (primaryField) {
+          setPrimaryFieldName(primaryField.name);
+          try {
             const recordName = await table.getCellString(primaryField.id, selection.recordId);
             setRecordTitle(recordName);
-          } else {
-            setPrimaryFieldName('');
+          } catch (err) {
+            console.error('Error getting record title:', err);
             setRecordTitle('');
           }
-        } catch (err) {
-          console.error('Error getting primary field:', err);
+        } else {
           setPrimaryFieldName('');
           setRecordTitle('');
         }
 
         // 检查是否存在批改字段
-        try {
-          const fieldMetaList = await table.getFieldMetaList();
-          const gradeField = fieldMetaList.find(f => f.name === GRADE_FIELD_NAME);
-          setHasGradeField(!!gradeField);
-          
-          if (gradeField) {
+        const gradeField = fieldMetaList.find(f => f.name === GRADE_FIELD_NAME);
+        setHasGradeField(!!gradeField);
+        if (gradeField) {
+          try {
             const hasValue = await checkGradeField(selection.tableId, selection.recordId);
             setShowGradeBtn(hasValue);
-          } else {
+          } catch (err) {
+            console.error('Error checking grade field:', err);
             setShowGradeBtn(false);
           }
-        } catch (err) {
-          console.error('Error checking grade field:', err);
-          setHasGradeField(false);
+        } else {
           setShowGradeBtn(false);
         }
         
@@ -279,53 +283,29 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
     </div>
   );
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      const prevIndex = currentIndex - 1;
-      const prevAttachment = attachments[prevIndex];
-      const prevIsImage = isImageAttachment(prevAttachment);
-      const prevIsPdf = isPdfAttachment(prevAttachment);
-      
-      // 立即显示加载动效
-      if (prevIsImage || prevIsPdf) {
-        setLoading(true);
-        setIsLoadingNewAttachment(true); // 标记为切换附件导致的加载
-      }
-      
-      // 先更新索引，触发重新渲染
-      setCurrentIndex(prevIndex);
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-      // 如果是PDF，重置页码
-      if (prevIsPdf) {
-        setPdfPageNum(1);
-      }
+  const navigateAttachment = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= attachments.length) return;
+
+    const targetAttachment = attachments[newIndex];
+    const targetIsImage = isImageAttachment(targetAttachment);
+    const targetIsPdf = isPdfAttachment(targetAttachment);
+
+    if (targetIsImage || targetIsPdf) {
+      setLoading(true);
+      setIsLoadingNewAttachment(true);
+    }
+
+    setCurrentIndex(newIndex);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+    if (targetIsPdf) {
+      setPdfPageNum(1);
     }
   };
 
-  const handleNext = () => {
-    if (currentIndex < attachments.length - 1) {
-      const nextIndex = currentIndex + 1;
-      const nextAttachment = attachments[nextIndex];
-      const nextIsImage = isImageAttachment(nextAttachment);
-      const nextIsPdf = isPdfAttachment(nextAttachment);
-      
-      // 立即显示加载动效
-      if (nextIsImage || nextIsPdf) {
-        setLoading(true);
-        setIsLoadingNewAttachment(true); // 标记为切换附件导致的加载
-      }
-      
-      // 先更新索引，触发重新渲染
-      setCurrentIndex(nextIndex);
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-      // 如果是PDF，重置页码
-      if (nextIsPdf) {
-        setPdfPageNum(1);
-      }
-    }
-  };
+  const handlePrevious = () => navigateAttachment('prev');
+  const handleNext = () => navigateAttachment('next');
 
   const handleWheel = useCallback((e: WheelEvent) => {
     if (!isImage) return;
@@ -603,65 +583,6 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
     setPdfScale(prev => Math.max(PDF_CONFIG.MIN_SCALE, prev - PDF_CONFIG.SCALE_STEP));
   };
 
-  // 图片压缩函数
-  const compressImage = async (
-    imageUrl: string, 
-    maxWidth: number = 1920, 
-    maxHeight: number = 1920, 
-    quality: number = 0.85
-  ): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        // 计算压缩后的尺寸
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width = width * ratio;
-          height = height * ratio;
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('无法创建 canvas context'));
-          return;
-        }
-        
-        // 使用高质量渲染
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        // 绘制压缩后的图片
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // 转换为 blob URL
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              resolve(url);
-            } else {
-              reject(new Error('图片压缩失败'));
-            }
-          },
-          'image/jpeg',
-          quality
-        );
-      };
-      
-      img.onerror = () => reject(new Error('图片加载失败'));
-      img.src = imageUrl;
-    });
-  };
-
   // 图片压缩处理 useEffect
   useEffect(() => {
     if (isImage && currentAttachment?.url) {
@@ -772,19 +693,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
     return (
       <div className="attachment-preview">
         {renderHeader()}
-        <div className="empty-state">
-          <div className="empty-illustration">
-            <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="60" cy="60" r="50" fill="#f0f0f0" stroke="#d9d9d9" strokeWidth="2"/>
-              <path d="M40 50L60 30L80 50" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M60 30V70" stroke="#999" strokeWidth="2" strokeLinecap="round"/>
-              <rect x="35" y="75" width="50" height="8" rx="2" fill="#999"/>
-              <rect x="35" y="88" width="40" height="8" rx="2" fill="#999"/>
-            </svg>
-          </div>
-          <div className="empty-title">请选择单元格</div>
-          <div className="empty-message">{error}</div>
-        </div>
+        <EmptyStateIllustration title="请选择单元格" message={error} />
       </div>
     );
   }
@@ -793,25 +702,12 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
     return (
       <div className="attachment-preview">
         {renderHeader()}
-        <div className="empty-state">
-          <div className="empty-illustration">
-            <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="60" cy="60" r="50" fill="#f0f0f0" stroke="#d9d9d9" strokeWidth="2"/>
-              <path d="M40 50L60 30L80 50" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M60 30V70" stroke="#999" strokeWidth="2" strokeLinecap="round"/>
-              <rect x="35" y="75" width="50" height="8" rx="2" fill="#999"/>
-              <rect x="35" y="88" width="40" height="8" rx="2" fill="#999"/>
-            </svg>
-          </div>
-          <div className="empty-title">
-            {selectedFieldType === FieldType.Attachment ? '当前单元格中没有附件内容' : '当前单元格不是附件类型'}
-          </div>
-          <div className="empty-message">
-            {selectedFieldType === FieldType.Attachment 
-              ? '请选择一个包含附件的单元格' 
-              : '请选择一个附件类型的单元格以预览内容'}
-          </div>
-        </div>
+        <EmptyStateIllustration
+          title={selectedFieldType === FieldType.Attachment ? '当前单元格中没有附件内容' : '当前单元格不是附件类型'}
+          message={selectedFieldType === FieldType.Attachment
+            ? '请选择一个包含附件的单元格'
+            : '请选择一个附件类型的单元格以预览内容'}
+        />
       </div>
     );
   }

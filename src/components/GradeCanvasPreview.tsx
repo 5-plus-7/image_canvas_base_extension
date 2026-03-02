@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { bitable, FieldType } from '@lark-base-open/js-sdk';
 import { loadGradeData as loadGradeDataFromField } from '../utils/gradeField';
+import { showToast } from '../utils/toast';
+import { IMAGE_CONFIG } from '../constants';
 import './GradeCanvasPreview.scss';
 
 interface AnswerStep {
@@ -31,7 +33,6 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
   const [error, setError] = useState<string>('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const [imageScale, setImageScale] = useState<number>(1);
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
 
   useEffect(() => {
@@ -161,15 +162,14 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
     if (!canvas || !image) return;
 
     // 设置画布尺寸
-    const maxWidth = 1200;
-    const maxHeight = 800;
+    const maxWidth = IMAGE_CONFIG.MAX_DISPLAY_WIDTH;
+    const maxHeight = IMAGE_CONFIG.MAX_DISPLAY_HEIGHT;
     const scaleX = maxWidth / image.naturalWidth;
     const scaleY = maxHeight / image.naturalHeight;
     const scale = Math.min(scaleX, scaleY, 1);
 
     canvas.width = image.naturalWidth * scale;
     canvas.height = image.naturalHeight * scale;
-    setImageScale(scale);
     setImageLoaded(true);
   };
 
@@ -197,16 +197,16 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
 
         const selection = await bitable.base.getSelection();
         if (!selection.recordId || !selection.tableId) {
-          alert('请先选择一个记录');
+          await showToast('请先选择一个记录', 'warning');
           return;
         }
 
         const table = await bitable.base.getTableById(selection.tableId);
         const fieldMetaList = await table.getFieldMetaList();
         const attachmentFields = fieldMetaList.filter(f => f.type === FieldType.Attachment);
-        
+
         if (attachmentFields.length === 0) {
-          alert('未找到附件字段');
+          await showToast('未找到附件字段', 'error');
           return;
         }
 
@@ -215,12 +215,12 @@ export const GradeCanvasPreview: React.FC<{ onBack: () => void }> = ({ onBack })
         const file = new File([blob], `grade-${Date.now()}.png`, { type: 'image/png' });
         const currentAttachments = await attachmentField.getValue(selection.recordId) || [];
         await attachmentField.setValue(selection.recordId, [...currentAttachments, file]);
-        
-        alert('导出成功');
+
+        await showToast('导出成功', 'success');
       }, 'image/png', 1.0);
     } catch (error) {
       console.error('Error exporting:', error);
-      alert('导出失败，请重试');
+      await showToast('导出失败，请重试', 'error');
     }
   };
 

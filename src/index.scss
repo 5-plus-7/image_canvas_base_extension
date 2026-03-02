@@ -1,3 +1,16 @@
 @import 'reset-css';
 @import "bootstrap/scss/bootstrap";
 @import "@excalidraw/excalidraw/index.css";
+
+// 修复 Bootstrap 的 .dropdown-menu 样式覆盖 Excalidraw 下拉菜单
+.excalidraw .dropdown-menu {
+  display: block;
+  min-width: auto;
+  padding: 0;
+  color: inherit;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  background-clip: border-box;
+  box-shadow: none;
+}

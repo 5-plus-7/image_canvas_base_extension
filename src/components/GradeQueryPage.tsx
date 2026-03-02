@@ -163,7 +163,7 @@ export const GradeQueryPage: React.FC<GradeQueryPageProps> = ({ onViewResult }: 
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !loading) {
       handleViewResult();
     }
@@ -212,13 +212,13 @@ export const GradeQueryPage: React.FC<GradeQueryPageProps> = ({ onViewResult }: 
               value={recordId}
               onChange={handleInputChange}
               onBlur={handleInputBlur}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="请输入批改任务ID"
               disabled={loading}
               pattern="[a-zA-Z0-9]*"
               inputMode="text"
             />
-            <small style={{color: '#666', fontSize: '12px', marginTop: '4px', display: 'block'}}>
+            <small className="form-hint">
               请输入批改任务ID
             </small>
           </div>
